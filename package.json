@@ -1,0 +1,13 @@
+{
+  "name": "dev-gregorium-com",
+  "version": "1.0.0",
+  "description": "Gregorium Developer Portal",
+  "type": "module",
+  "scripts": {
+    "start": "vercel dev",
+    "deploy": "vercel deploy --prod"
+  },
+  "devDependencies": {
+    "vercel": "^54.18.6"
+  }
+}
