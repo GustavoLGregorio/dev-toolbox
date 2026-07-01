@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IndexNow Submitter | gregorium.dev</title>
+  <meta name="description" content="Quickly submit URLs to the IndexNow protocol. Generate API keys, verify hosting, and upload sitemaps or CSV lists.">
+  <link rel="stylesheet" href="../index.css">
+  <script src="../index.js" defer></script>
+  <script src="./indexnow.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <!-- Navbar -->
+    <nav class="nav" aria-label="Main Navigation">
+      <a href="/" class="nav__brand">
+        gregorium<span class="nav__brand-sub">.dev</span>
+      </a>
+      <div class="nav__actions">
+        <!-- Back to Hub Link -->
+        <a href="../" style="font-size: var(--font-size-sm); text-decoration: none; margin-right: var(--spacing-sm);">← Hub</a>
+        <!-- SVG Theme Toggler (Moon Icon) -->
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Header Section -->
+    <header class="header">
+      <h1 class="header__title">IndexNow Submitter</h1>
+      <p class="header__subtitle">
+        Notify search engines about content updates instantly. Submissions are proxied directly to the official IndexNow endpoint.
+      </p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main" id="main-content">
+      <div class="card" style="margin-bottom: var(--spacing-lg);">
+        <h2 class="card__title">1. Setup Verification Key</h2>
+        
+        <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: var(--spacing-md);">
+          <!-- Domain Input -->
+          <div class="form-group">
+            <label for="input-domain" class="label">
+              Website Domain
+              <span class="label__desc">The host name of your website (e.g. gregorium.com or www.gregorium.com)</span>
+            </label>
+            <input type="text" id="input-domain" class="input" placeholder="example.com" required>
+          </div>
+
+          <!-- Key Input & Generator -->
+          <div class="form-group">
+            <label for="input-key" class="label">
+              IndexNow API Key
+              <span class="label__desc">A 32-character hexadecimal key (only numbers and letters a-f)</span>
+            </label>
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: 4px;">
+              <input type="text" id="input-key" class="input" style="flex-grow: 1;" placeholder="e.g. 5fa70691500f40fb87256ea0297920ab" maxlength="32">
+              <button type="button" id="btn-generate-key" class="button" style="white-space: nowrap;">Generate Key</button>
+            </div>
+          </div>
+
+          <!-- Key Location Input & Downloader -->
+          <div class="form-group">
+            <label for="input-key-location" class="label">
+              Key Location URL
+              <span class="label__desc">The public URL where your key file is hosted. Should be at the root of your domain.</span>
+            </label>
+            <input type="url" id="input-key-location" class="input" placeholder="https://example.com/your-key.txt">
+            <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-start; margin-top: var(--spacing-xs);">
+              <button type="button" id="btn-download-key" class="button button--disabled" disabled>Download key file (.txt)</button>
+              <button type="button" id="btn-verify-setup" class="button">Test / Verify Key</button>
+            </div>
+            <div id="verify-status" style="margin-top: var(--spacing-sm); display: none;">
+              <!-- Dynamic status gets injected here -->
+            </div>
+          </div>
+
+          <!-- Skip Checkbox -->
+          <div style="display: flex; align-items: center; gap: var(--spacing-xs); margin-top: var(--spacing-xs);">
+            <input type="checkbox" id="check-skip-verify" style="cursor: pointer; width: 16px; height: 16px;">
+            <label for="check-skip-verify" class="label" style="font-weight: normal; cursor: pointer; user-select: none;">
+              Skip server-side pre-verification check (submit directly)
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: var(--spacing-lg);">
+        <h2 class="card__title">2. Load URLs to Index</h2>
+
+        <!-- Tab Controls -->
+        <div class="tab-container" role="tablist">
+          <button id="tab-manual" class="tab-button tab-button--active" role="tab" aria-selected="true" aria-controls="panel-manual">Manual Input</button>
+          <button id="tab-sitemap" class="tab-button" role="tab" aria-selected="false" aria-controls="panel-sitemap">XML Sitemap Link</button>
+          <button id="tab-file" class="tab-button" role="tab" aria-selected="false" aria-controls="panel-file">File Import (CSV/XML)</button>
+        </div>
+
+        <!-- Tab Panel: Manual -->
+        <div id="panel-manual" class="tab-panel" role="tabpanel" aria-labelledby="tab-manual">
+          <div class="form-group">
+            <label for="textarea-urls" class="label">
+              Enter URLs
+              <span class="label__desc">Type or paste your URLs below, one URL per line. Make sure they start with http:// or https://</span>
+            </label>
+            <textarea id="textarea-urls" class="textarea" placeholder="https://example.com/&#10;https://example.com/about&#10;https://example.com/blog/new-post"></textarea>
+          </div>
+        </div>
+
+        <!-- Tab Panel: Sitemap -->
+        <div id="panel-sitemap" class="tab-panel" role="tabpanel" aria-labelledby="tab-sitemap" style="display: none;">
+          <div class="form-group">
+            <label for="input-sitemap-url" class="label">
+              Sitemap URL
+              <span class="label__desc">The URL to your sitemap.xml file. We will fetch and extract the URLs on the server.</span>
+            </label>
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: 4px;">
+              <input type="url" id="input-sitemap-url" class="input" style="flex-grow: 1;" placeholder="https://example.com/sitemap.xml">
+              <button type="button" id="btn-fetch-sitemap" class="button" style="white-space: nowrap;">Fetch & Extract</button>
+            </div>
+            <div id="sitemap-fetch-status" style="margin-top: var(--spacing-sm); display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Tab Panel: File -->
+        <div id="panel-file" class="tab-panel" role="tabpanel" aria-labelledby="tab-file" style="display: none;">
+          <div class="form-group">
+            <label class="label">
+              Upload Sitemap or CSV
+              <span class="label__desc">Drag and drop a local sitemap.xml or CSV file below to extract URLs locally in your browser.</span>
+            </label>
+            <div id="drop-zone" class="drop-zone">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <p class="drop-zone__text">Drag and drop file here, or <span style="text-decoration: underline;">browse files</span></p>
+              <input type="file" id="file-input" style="display: none;" accept=".xml,.csv,.txt">
+              <div id="drop-zone-info" class="drop-zone__file-info" style="display: none;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loaded URLs summary -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: var(--spacing-md); margin-top: var(--spacing-md);">
+          <div style="font-size: var(--font-size-sm); font-weight: 500;">
+            Total URLs detected: <span id="url-count">0</span>
+          </div>
+          <button type="button" id="btn-clear-urls" class="button" style="font-size: var(--font-size-xs); padding: 4px 8px;">Clear URLs</button>
+        </div>
+      </div>
+
+      <!-- Action & Output card -->
+      <div class="card" style="margin-bottom: var(--spacing-lg);">
+        <h2 class="card__title">3. Submit to IndexNow</h2>
+        <p class="card__description" style="font-size: var(--font-size-sm);">
+          Clicking submit will send your key details along with the URL list to search engines.
+        </p>
+
+        <div style="display: flex; gap: var(--spacing-md); align-items: center; margin-top: var(--spacing-sm);">
+          <button type="button" id="btn-submit" class="button button--primary" style="padding: var(--spacing-sm) var(--spacing-lg);">Submit to IndexNow</button>
+          <div id="submit-loader" style="display: none; font-size: var(--font-size-sm); color: var(--text-muted);">
+            Sending request, please wait...
+          </div>
+        </div>
+
+        <div id="submit-status" style="margin-top: var(--spacing-md); display: none;">
+          <!-- Submission status results badge and label -->
+        </div>
+
+        <!-- Monospace Console Panel -->
+        <pre id="results-console" class="results-panel"></pre>
+      </div>
+
+      <!-- Help/FAQ callout -->
+      <div class="callout">
+        <h3 class="callout__title">About IndexNow</h3>
+        <p class="callout__text" style="color: var(--text-muted);">
+          IndexNow is a protocol that allows website owners to instantly inform search engines about recent content changes on their website. In its simplest form, IndexNow is a simple ping that tells search engines: "this URL was created, updated, or deleted". Search engines then prioritize crawl queues for these URLs.
+          <br><br>
+          For the submission to be successful, you must host a text file containing your API key at the root of your domain. This tool makes it easy to generate the key, download the key text file, verify that it's hosted properly, load sitemaps or lists of URLs, and request indexings immediately.
+        </p>
+      </div>
+
+      <!-- Privacy & Ads -->
+      <section class="transparency-banner" aria-labelledby="transparency-title">
+        <h3 class="transparency-banner__title" id="transparency-title">Zero Logs Policy</h3>
+        <p class="transparency-banner__text">
+          No logs of your domains, API keys, or submitted URLs are ever saved to a database or stored on the Vercel backend. Submissions are processed on-the-fly via a stateless serverless function and sent directly to IndexNow.
+        </p>
+      </section>
+
+      <!-- Elegant Advertisement Area -->
+      <aside class="ad-section" aria-label="Sponsored Content">
+        <div class="ad-section__slot">
+          Advertisement Slot (AdsTerra / EthicalAds)
+        </div>
+      </aside>
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="footer">
+      <div class="footer__credits">
+        &copy; 2026 <a href="https://gregorium.com" target="_blank" rel="noopener">gregorium.com</a>. All rights reserved.
+      </div>
+      <div class="footer__links">
+        <a href="https://github.com/gregorium" target="_blank" rel="noopener">GitHub</a>
+        <a href="/docs/README.md" target="_blank">Docs (Agent-ready)</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
