@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // State
   let loadedUrls = [];
+  let hasCustomSitemap = false;
+  let hasCustomKeyLocation = false;
 
   // ==========================================
   // 1. Initial State & LocalStorage
@@ -45,23 +47,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const storedDomain = localStorage.getItem('indexnow_domain');
     const storedKey = localStorage.getItem('indexnow_key');
     const storedLocation = localStorage.getItem('indexnow_key_location');
+    const storedSitemap = localStorage.getItem('indexnow_sitemap');
 
     if (storedDomain) domainInput.value = storedDomain;
     if (storedKey) keyInput.value = storedKey;
     
     if (storedLocation) {
       keyLocationInput.value = storedLocation;
-    } else {
-      updateKeyLocation();
+      hasCustomKeyLocation = true;
     }
     
-    toggleDownloadButton();
+    if (storedSitemap) {
+      sitemapUrlInput.value = storedSitemap;
+      hasCustomSitemap = true;
+    }
+
+    // Run calculation to populate empty defaults
+    updateKeyLocationAndSitemap();
   };
 
   const saveConfigToStorage = () => {
     localStorage.setItem('indexnow_domain', domainInput.value.trim());
     localStorage.setItem('indexnow_key', keyInput.value.trim());
     localStorage.setItem('indexnow_key_location', keyLocationInput.value.trim());
+    localStorage.setItem('indexnow_sitemap', sitemapUrlInput.value.trim());
   };
 
   // ==========================================
@@ -75,20 +84,38 @@ document.addEventListener('DOMContentLoaded', () => {
       key += chars[Math.floor(Math.random() * chars.length)];
     }
     keyInput.value = key;
-    updateKeyLocation();
-    toggleDownloadButton();
+    updateKeyLocationAndSitemap();
   };
 
-  const updateKeyLocation = () => {
-    const domain = domainInput.value.trim().replace(/^(https?:\/\/)?(www\.)?/, '');
+  const updateKeyLocationAndSitemap = () => {
+    const rawDomain = domainInput.value.trim();
+    const cleanDomain = rawDomain.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
     const key = keyInput.value.trim();
-    if (domain && key) {
-      keyLocationInput.value = `https://${domain}/${key}.txt`;
-    } else if (domain) {
-      keyLocationInput.value = `https://${domain}/your-key.txt`;
-    } else {
+
+    if (!rawDomain) {
+      // If domain is empty, reset flags so next domain entry re-generates everything
+      hasCustomKeyLocation = false;
+      hasCustomSitemap = false;
       keyLocationInput.value = '';
+      sitemapUrlInput.value = '';
+      toggleDownloadButton();
+      return;
     }
+
+    // Auto-update Key Location URL if not customized by user
+    if (!hasCustomKeyLocation) {
+      if (key) {
+        keyLocationInput.value = `https://${cleanDomain}/${key}.txt`;
+      } else {
+        keyLocationInput.value = `https://${cleanDomain}/your-key.txt`;
+      }
+    }
+
+    // Auto-update Sitemap URL if not customized by user
+    if (!hasCustomSitemap) {
+      sitemapUrlInput.value = `https://${cleanDomain}/sitemap.xml`;
+    }
+
     toggleDownloadButton();
   };
 
@@ -124,11 +151,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. Server-Side Key Pre-Verification
   // ==========================================
   const verifyKeyHosting = async () => {
-    const key = keyInput.value.trim();
+    let key = keyInput.value.trim();
     const keyLocation = keyLocationInput.value.trim();
 
+    // Auto-extract key if empty but keyLocation is present
+    if (!key && keyLocation) {
+      const match = keyLocation.match(/\/([a-f0-9]{8,32})\.txt$/i);
+      if (match && match[1]) {
+        key = match[1];
+        keyInput.value = key;
+        updateKeyLocationAndSitemap();
+      }
+    }
+
     if (!key || !keyLocation) {
-      showVerifyStatus('Please fill in both the API Key and Key Location URL.', 'error');
+      showVerifyStatus('Please fill in the Website Domain and API Key (or paste a valid Key Location URL containing the key filename).', 'error');
       return false;
     }
 
@@ -464,12 +501,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Event Listeners: Key & domain inputs
   domainInput.addEventListener('input', () => {
-    updateKeyLocation();
+    updateKeyLocationAndSitemap();
+  });
+  
+  keyInput.addEventListener('input', () => {
+    updateKeyLocationAndSitemap();
+  });
+
+  keyLocationInput.addEventListener('input', () => {
+    hasCustomKeyLocation = true;
+    const urlVal = keyLocationInput.value.trim();
+    // Match standard hex keys between 8 and 32 chars in filename
+    const match = urlVal.match(/\/([a-f0-9]{8,32})\.txt$/i);
+    if (match && match[1]) {
+      keyInput.value = match[1];
+    }
     toggleDownloadButton();
   });
-  keyInput.addEventListener('input', () => {
-    updateKeyLocation();
-    toggleDownloadButton();
+
+  sitemapUrlInput.addEventListener('input', () => {
+    hasCustomSitemap = true;
   });
   
   generateKeyBtn.addEventListener('click', generateRandomKey);
