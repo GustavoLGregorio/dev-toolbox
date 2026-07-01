@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
       const response = await fetch(keyLocation, {
         signal: controller.signal,
-        headers: { 'User-Agent': 'Gregorium-IndexNow-Verify/1.0' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' }
       });
       clearTimeout(timeoutId);
 
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
 
       const response = await fetch(sitemapUrl, {
         signal: controller.signal,
-        headers: { 'User-Agent': 'Gregorium-IndexNow-Sitemap/1.0' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' }
       });
       clearTimeout(timeoutId);
 
