@@ -212,44 +212,68 @@ export default {
         });
       }
 
-      try {
-        const payload = { host, key, urlList };
-        if (keyLocation) {
-          payload.keyLocation = keyLocation;
-        }
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-        const response = await fetch('https://api.indexnow.org/indexnow', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8'
-          },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        const responseText = await response.text();
-        let responseData = {};
-        try {
-          responseData = JSON.parse(responseText);
-        } catch (e) {
-          responseData = { message: responseText || 'Status received from IndexNow' };
-        }
-
-        return new Response(JSON.stringify(responseData), {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      } catch (err) {
-        const errorMsg = err.name === 'AbortError' ? 'IndexNow request timed out (10s)' : err.message;
-        return new Response(JSON.stringify({ error: `IndexNow API submission error: ${errorMsg}` }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      const payload = { host, key, urlList };
+      if (keyLocation) {
+        payload.keyLocation = keyLocation;
       }
+
+      const endpoints = [
+        'https://api.indexnow.org/indexnow',
+        'https://www.bing.com/indexnow',
+        'https://yandex.com/indexnow'
+      ];
+
+      let lastResponse = null;
+      let lastStatus = 500;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout per endpoint
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8'
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          lastStatus = response.status;
+          const responseText = await response.text();
+          
+          try {
+            lastResponse = JSON.parse(responseText);
+          } catch (e) {
+            lastResponse = { message: responseText || `Status ${response.status} received` };
+          }
+
+          // If successful (200 or 202), we stop and return immediately!
+          if (response.status === 200 || response.status === 202) {
+            lastResponse.engineVerified = endpoint;
+            return new Response(JSON.stringify(lastResponse), {
+              status: response.status,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          console.warn(`Endpoint ${endpoint} failed with status ${response.status}. Trying next...`);
+
+        } catch (err) {
+          lastError = err.name === 'AbortError' ? 'Request timed out (8s)' : err.message;
+          console.error(`Endpoint ${endpoint} failed: ${lastError}. Trying next...`);
+        }
+      }
+
+      // If all endpoints failed, return the last response or error
+      const errorPayload = lastResponse || { error: lastError || 'All IndexNow endpoints failed.' };
+      return new Response(JSON.stringify(errorPayload), {
+        status: lastStatus,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Default action fallback
