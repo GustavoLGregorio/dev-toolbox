@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Otherwise, query the deployed Cloudflare Worker URL.
     const base = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:8787'
-      : 'https://dev-toolbox-indexnow.gregorium.workers.dev';
+      : 'https://dev-toolbox-indexnow.gustavo-l-gregorio.workers.dev';
     return `${base}/api/indexnow?action=${action}`;
   };
 
