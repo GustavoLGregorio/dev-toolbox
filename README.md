@@ -7,39 +7,68 @@ Currently launching with the **IndexNow Submitter** tool under `/indexnow`.
 ---
 
 ## Technical Stack
-- **Frontend:** Vanilla HTML5, Vanilla CSS3 (BEM naming, CSS variables), and ECMAScript Modern JS.
-- **Backend:** Vercel Serverless Functions (`api/` directory).
+- **Frontend Hosting:** Vercel (serves the `dist/` directory as root).
+- **Backend APIs:** Cloudflare Workers (source code inside the `worker/` directory).
 - **Package & Runtime Manager:** Bun
-- **Hosting Platform:** Vercel
+- **Key-Value Store:** Cloudflare KV (`DEV_INDEXNOW_KV` namespace used for IP-based rate limiting).
 
 ---
 
 ## Project Structure
-- `/dist`: Public static assets (HTML, CSS, JS and pages) served directly by Vercel.
-- `/api`: Serverless API routes.
+- `/dist`: Public static assets (HTML, CSS, JS and pages) served directly by Vercel. Contains its own simplified `vercel.json` config.
+- `/worker`: Cloudflare Worker source code, package config, and `wrangler.jsonc` file.
 - `/docs`: Markdown documentation (optimized for AI Agents).
-- `vercel.json`: Route rewriting config protecting root files and serving `/dist` assets at the root path.
 
 ---
 
 ## Local Development
 
+To test the entire platform end-to-end, you can run the Vercel static dev server and the local Cloudflare Wrangler dev server concurrently.
+
 ### 1. Install Dependencies
-Ensure you have [Bun](https://bun.sh) installed. Run:
+Ensure you have [Bun](https://bun.sh) installed. Run at the root of the project:
 ```bash
 bun install
 ```
+Also install the worker dependencies:
+```bash
+cd worker && bun install && cd ..
+```
 
-### 2. Run Local Emulation
-To run the Vercel local dev environment (which hosts both static files under `/dist` and serverless functions under `/api` concurrently):
+### 2. Run the Servers
+
+#### Step A: Start Vercel Dev (Frontend)
+From the root of the project, run:
 ```bash
 bun start
 ```
+This starts the static server at `http://localhost:3000`.
 
-### 3. Deploy
-To deploy manually via the command line:
+#### Step B: Start Wrangler Dev (Backend Worker)
+In a separate terminal tab, run:
+```bash
+cd worker
+bunx wrangler dev
+```
+This runs the Cloudflare Worker emulator at `http://localhost:8787` with local KV simulation enabled.
+
+*Note: The frontend script in `dist/indexnow/indexnow.js` automatically detects when it is running on `localhost` and routes API requests to the Wrangler local server on port 8787.*
+
+---
+
+## Deployment
+
+### Frontend (Vercel)
+To deploy the static assets manually (or you can use GitHub Vercel integration, which deploys automatically on push):
 ```bash
 bun run deploy
+```
+
+### Backend (Cloudflare Worker)
+To deploy the Worker to your Cloudflare account:
+```bash
+cd worker
+bunx wrangler deploy
 ```
 
 ---

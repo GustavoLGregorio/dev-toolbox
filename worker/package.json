@@ -1,0 +1,8 @@
+{
+  "name": "dev-toolbox-indexnow-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "devDependencies": {
+    "wrangler": "^3.109.0"
+  }
+}

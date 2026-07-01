@@ -5,7 +5,7 @@ Welcome, Agent. This documentation is written explicitly to provide you with the
 ---
 
 ## 1. Project Context & Philosophy
-`dev.gregorium.com` is a brand extension of **Gregorium**. Its mission is to build **free, high-quality, transparent, and dependency-free utility tools for developers**. 
+`dev.gregorium.com` is a brand extension of **Gregorium**. Its mission is to build **free, high-quality, transparent, and dependency-free utility tools for developers**.
 
 ### Architectural Constraints
 - **Zero/Minimal Cost:** The project must run at near-zero hosting cost.
@@ -23,7 +23,7 @@ This documentation root is structured by tool/topic directories. As new develope
 docs/
 ├── README.md                 # This file (Global agent entry point)
 └── index_now/                # Context & limits for the IndexNow Submitter tool
-    └── API_LIMITS.md         # Open discussion on rate limits and abuse prevention
+    └── API_LIMITS.md         # Active KV rate limits, proxy architecture, and abuse prevention details
 ```
 
 ---
@@ -31,16 +31,20 @@ docs/
 ## 3. Technology Stack & Key Decisions Context
 
 ### A. Vercel Hosting & Root Folder Protection
-- **Decision:** We use Vercel for hosting static pages and APIs.
-- **Context:** To prevent package configurations (`package.json`), documentation (`docs/`), and raw backend code (`api/`) from being exposed publicly, we separate the directory:
+- **Decision:** We use Vercel for hosting static pages.
+- **Context:** To prevent package configurations (`package.json`), documentation (`docs/`), and raw backend code (`worker/`) from being exposed publicly, we separate the directory:
   - The static site assets live inside the `dist/` folder.
-  - Vercel's rewrite engine routes `/api/*` to serverless function endpoints and redirects all other traffic to the `dist/` subfolder.
-  - This ensures that root files remain private.
+  - The Vercel project has its **Root Directory** set to `dist/` in the dashboard.
+  - This ensures that only `dist/` is uploaded and served by Vercel, keeping parent configuration files private.
 
-### B. Pure CSS & BEM (Block-Element-Modifier)
-- **Decision:** Pure CSS styling, utilizing the BEM structure, and absolute reliance on CSS custom properties (variables) for parameters.
-- **Context:** Rather than loading large style sheets, we write modular and highly performant CSS. Custom styles must be reusable. Values such as colors, margins, font-sizes, and border radii must **never** be hardcoded. They are managed through CSS custom properties defined in `:root`. This facilitates simple transitions between light and dark mode (using the modern CSS `light-dark()` function or custom media preferences).
+### B. Cloudflare Workers & KV Store (Backend API)
+- **Decision:** The backend proxy API is hosted on Cloudflare Workers rather than Vercel Serverless.
+- **Context:** Cloudflare Workers provides a generous 100,000 requests per day on the free tier (independent of Vercel usage caps) and has no total CPU execution time limits (only 10ms CPU execution time, which is free for network fetches). A KV store named `DEV_INDEXNOW_KV` is bound to the Worker to enforce IP-based rate limits.
 
-### C. Modern Vanilla JavaScript & EDP
-- **Decision:** Modern ES6+ JavaScript following an Event-Driven Pattern (EDP).
-- **Context:** We keep JS lightweight. Global behaviors (like navigation, theme toggling, or layout settings) reside in `dist/index.js`. Tool-specific features reside in page-specific scripts (e.g., `dist/indexnow/indexnow.js`). This separation avoids bloated script files and ensures each page loads only what is necessary.
+### C. Local Integration Testing
+- The frontend `dist/indexnow/indexnow.js` includes a dynamic API resolver:
+  - If running on `localhost`, it automatically routes requests to `http://localhost:8787` (local Wrangler development server).
+  - In production, it routes requests to the deployed Cloudflare Worker URL.
+- To test the entire platform locally:
+  1. Start the Vercel static server: `bun start` (runs `vercel dev` on `http://localhost:3000`).
+  2. Start the local Wrangler Worker: `cd worker && bunx wrangler dev` (runs Wrangler emulator on `http://localhost:8787` with local KV simulation).

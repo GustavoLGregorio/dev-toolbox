@@ -41,6 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let hasCustomKeyLocation = false;
 
   // ==========================================
+  // 0. API Endpoint Resolver
+  // ==========================================
+  const getApiUrl = (action) => {
+    // If testing locally (localhost), query wrangler dev server on port 8787.
+    // Otherwise, query the deployed Cloudflare Worker URL.
+    const base = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8787'
+      : 'https://dev-toolbox-indexnow.gregorium.workers.dev';
+    return `${base}/api/indexnow?action=${action}`;
+  };
+
+  // ==========================================
   // 1. Initial State & LocalStorage
   // ==========================================
   const loadStoredConfig = () => {
@@ -173,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveConfigToStorage();
 
     try {
-      const response = await fetch('/api/indexnow?action=verify', {
+      const response = await fetch(getApiUrl('verify'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, keyLocation })
@@ -250,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showSitemapFetchStatus('Downloading and parsing sitemap...', 'info');
 
     try {
-      const response = await fetch('/api/indexnow?action=sitemap', {
+      const response = await fetch(getApiUrl('sitemap'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sitemapUrl })
@@ -421,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsConsole.style.display = 'none';
 
     try {
-      const response = await fetch('/api/indexnow?action=submit', {
+      const response = await fetch(getApiUrl('submit'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
