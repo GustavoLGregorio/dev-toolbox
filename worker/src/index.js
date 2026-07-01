@@ -127,11 +127,14 @@ export default {
         });
       }
 
-      // KV Rate Limiter for Sitemaps: Max 20 fetches per IP per hour
+      // KV Rate Limiter for Sitemaps: Max 500 fetches per IP per day (86400s) + 2s cooldown
       const sitemapLimitKey = `rate_sitemap_${clientIp}`;
-      const hasLimitExceeded = await enforceRateLimit(env.DEV_INDEXNOW_KV, sitemapLimitKey, 20, 3600);
-      if (hasLimitExceeded) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded: Max 20 sitemap fetches per hour.' }), {
+      const limitResult = await enforceRateLimit(env.DEV_INDEXNOW_KV, sitemapLimitKey, 500, 86400);
+      if (limitResult.limited) {
+        const errorMsg = limitResult.reason === 'cooldown'
+          ? 'Too many requests. Please wait at least 2 seconds between requests.'
+          : 'Daily limit exceeded: Max 500 sitemap fetches per day.';
+        return new Response(JSON.stringify({ error: errorMsg }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
@@ -196,11 +199,14 @@ export default {
         });
       }
 
-      // KV Rate Limiter for Submissions: Max 10 submissions per IP per hour
+      // KV Rate Limiter for Submissions: Max 500 submissions per IP per day (86400s) + 2s cooldown
       const submitLimitKey = `rate_submit_${clientIp}`;
-      const hasLimitExceeded = await enforceRateLimit(env.DEV_INDEXNOW_KV, submitLimitKey, 10, 3600);
-      if (hasLimitExceeded) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded: Max 10 index submissions per hour.' }), {
+      const limitResult = await enforceRateLimit(env.DEV_INDEXNOW_KV, submitLimitKey, 500, 86400);
+      if (limitResult.limited) {
+        const errorMsg = limitResult.reason === 'cooldown'
+          ? 'Too many requests. Please wait at least 2 seconds between requests.'
+          : 'Daily limit exceeded: Max 500 index submissions per day.';
+        return new Response(JSON.stringify({ error: errorMsg }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
@@ -255,46 +261,57 @@ export default {
 };
 
 /**
- * Enforces rate limiting on a specific key using KV store.
+ * Enforces rate limiting and cooldown periods on a specific key using KV store.
  * @param {object} kvNamespace The KV binding instance
  * @param {string} key The unique limiter key (e.g. action + IP)
  * @param {number} maxCount Maximum allowed requests inside window
  * @param {number} windowSeconds Timeframe in seconds
- * @returns {Promise<boolean>} True if rate limit is exceeded, False otherwise.
+ * @returns {Promise<{limited: boolean, reason: string|null}>} Result object.
  */
 async function enforceRateLimit(kvNamespace, key, maxCount, windowSeconds) {
-  if (!kvNamespace) return false; // Fail open if KV is missing (should not happen)
+  if (!kvNamespace) return { limited: false, reason: null }; // Fail open if KV is missing
 
   try {
     const rawRecord = await kvNamespace.get(key);
-    let record = { count: 0, timestamp: Date.now() };
+    let record = { count: 0, timestamp: Date.now(), lastActive: 0 };
 
     if (rawRecord) {
       record = JSON.parse(rawRecord);
     }
 
-    const elapsed = Date.now() - record.timestamp;
+    const now = Date.now();
     
-    if (elapsed > windowSeconds * 1000) {
-      // Window expired, reset counter
+    // 1. Cooldown limit: Enforce at least 2 seconds between consecutive calls from the same IP
+    const elapsedCooldown = now - record.lastActive;
+    if (record.lastActive > 0 && elapsedCooldown < 2000) {
+      return { limited: true, reason: 'cooldown' };
+    }
+
+    // 2. Rolling/Window Quota check
+    const elapsedWindow = now - record.timestamp;
+    if (elapsedWindow > windowSeconds * 1000) {
+      // Window expired, reset counter and window start
       record.count = 1;
-      record.timestamp = Date.now();
+      record.timestamp = now;
     } else {
       // Within window
       if (record.count >= maxCount) {
-        return true; // Limit exceeded
+        return { limited: true, reason: 'quota' };
       }
       record.count++;
     }
 
+    // Update last active timestamp
+    record.lastActive = now;
+
     // Save record back with matching TTL expiration
     await kvNamespace.put(key, JSON.stringify(record), {
-      expirationTtl: windowSeconds
+      expirationTtl: Math.max(60, windowSeconds)
     });
     
-    return false;
+    return { limited: false, reason: null };
   } catch (err) {
     console.error('Rate limiter error:', err);
-    return false; // Fail open to keep service running
+    return { limited: false, reason: null }; // Fail open to keep service running
   }
 }
