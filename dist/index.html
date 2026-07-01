@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gregorium Developer Utilities | dev.gregorium.com</title>
+  <meta name="description" content="Free, premium, transparent, and lightweight utility tools for developers. Stating no data, zero bloat.">
+  <link rel="stylesheet" href="./index.css">
+  <script src="./index.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <!-- Navbar -->
+    <nav class="nav" aria-label="Main Navigation">
+      <a href="/" class="nav__brand">
+        gregorium<span class="nav__brand-sub">.dev</span>
+      </a>
+      <div class="nav__actions">
+        <!-- SVG Theme Toggler (Moon Icon) -->
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Header Section -->
+    <header class="header">
+      <h1 class="header__title">Developer Utilities</h1>
+      <p class="header__subtitle">
+        Simple, high-performance, and transparent tools built for developers. No registration, no tracking, and zero bloated frameworks.
+      </p>
+    </header>
+
+    <!-- Main Content Section -->
+    <main class="main" id="main-content">
+      <!-- Grid of Tools -->
+      <section class="card-grid" aria-label="Available Tools">
+        
+        <!-- Tool Card: IndexNow Submitter -->
+        <article class="card">
+          <div class="card__header" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+            <h2 class="card__title">IndexNow Submitter</h2>
+            <span class="badge badge--success">Active</span>
+          </div>
+          <p class="card__description">
+            Instantly submit URLs to the IndexNow protocol to alert search engines (Bing, Yandex, Seznam) of updates. Supports manual input, CSV imports, and direct sitemap parsing.
+          </p>
+          <div class="card__footer">
+            <a href="./indexnow/" class="button button--primary">Open Tool</a>
+          </div>
+        </article>
+
+        <!-- Tool Card Placeholder: Future Tool -->
+        <article class="card" style="opacity: 0.6; border-style: dashed;">
+          <div class="card__header" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+            <h2 class="card__title">JSON Formatter & Validator</h2>
+            <span class="badge" style="background-color: var(--border-color); color: var(--text-muted);">Upcoming</span>
+          </div>
+          <p class="card__description">
+            A privacy-safe JSON formatter and schema validator that runs 100% locally in your browser. No server queries, no logs.
+          </p>
+          <div class="card__footer">
+            <button class="button button--disabled" disabled>Upcoming</button>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- Transparency declaration Section -->
+      <section class="transparency-banner" aria-labelledby="transparency-title">
+        <h3 class="transparency-banner__title" id="transparency-title">Transparency & Privacy Commitment</h3>
+        <p class="transparency-banner__text">
+          These tools run entirely on client-side logic or stateless serverless APIs. No databases are connected, no logs are collected, and no search terms or payloads are analyzed. What you submit never leaves the transit channel between your browser and the search engine APIs.
+        </p>
+      </section>
+
+      <!-- Elegant Advertisement Area -->
+      <aside class="ad-section" aria-label="Sponsored Content">
+        <div class="ad-section__slot">
+          Advertisement Slot (AdsTerra / EthicalAds)
+        </div>
+      </aside>
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="footer">
+      <div class="footer__credits">
+        &copy; 2026 <a href="https://gregorium.com" target="_blank" rel="noopener">gregorium.com</a>. All rights reserved.
+      </div>
+      <div class="footer__links">
+        <a href="https://github.com/gregorium" target="_blank" rel="noopener">GitHub</a>
+        <a href="/docs/README.md" target="_blank">Docs (Agent-ready)</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
