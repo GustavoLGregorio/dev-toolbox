@@ -71,6 +71,8 @@ async function fetchConversation(shareId) {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   ];
 
+  const attempts = [];
+
   // Strategy 1: Iterate SSR HTML fetching with crawler profiles allowed through WAF
   for (const ua of userAgents) {
     try {
@@ -86,14 +88,20 @@ async function fetchConversation(shareId) {
       });
       clearTimeout(timeout);
 
+      const status = htmlRes.status;
       if (htmlRes.ok) {
         const htmlText = await htmlRes.text();
         const extracted = parseTurboStream(htmlText);
         if (extracted && (extracted.linear_conversation || extracted.mapping)) {
           return { success: true, data: extracted };
         }
+        attempts.push({ ua: ua.slice(0, 15), status, streamParsed: false, htmlLen: htmlText.length });
+      } else {
+        attempts.push({ ua: ua.slice(0, 15), status });
       }
-    } catch (_) {}
+    } catch (err) {
+      attempts.push({ ua: ua.slice(0, 15), error: err.message });
+    }
   }
 
   // Strategy 2: Direct backend-api fallback
@@ -115,9 +123,12 @@ async function fetchConversation(shareId) {
         return { success: true, data };
       }
     }
-  } catch (_) {}
+    attempts.push({ apiStatus: apiRes.status });
+  } catch (err) {
+    attempts.push({ apiError: err.message });
+  }
 
-  return { success: false, status: 404, error: 'Could not extract conversation data from share link.' };
+  return { success: false, status: 404, error: 'Could not extract conversation data from share link.', details: attempts };
 }
 
 export default async function handler(request, response) {
@@ -168,7 +179,7 @@ async function handleEdge(request) {
     });
   }
 
-  return new Response(JSON.stringify({ error: result.error || 'Failed to fetch conversation.' }), {
+  return new Response(JSON.stringify({ error: result.error || 'Failed to fetch conversation.', details: result.details }), {
     status: result.status || 500,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -201,5 +212,5 @@ async function handleNode(req, res) {
     return res.status(200).json(result.data);
   }
 
-  return res.status(result.status || 500).json({ error: result.error || 'Failed to fetch conversation.' });
+  return res.status(result.status || 500).json({ error: result.error || 'Failed to fetch conversation.', details: result.details });
 }
