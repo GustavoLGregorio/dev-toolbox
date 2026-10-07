@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatGPT Share Exporter | dev.gregorium.com</title>
+  <meta name="description" content="Export shared ChatGPT conversations into clean, structured .jsonl, .md, or .txt files instantly.">
+  <script>
+    (function() {
+      var saved = localStorage.getItem('theme');
+      var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="stylesheet" href="../index.css">
+  <script src="../index.js" defer></script>
+  <script src="./exporter.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <!-- Navbar -->
+    <nav class="nav" aria-label="Main Navigation">
+      <a href="/" class="nav__brand">
+        gregorium<span class="nav__brand-sub">.dev</span>
+      </a>
+      <div class="nav__actions">
+        <!-- Back to Hub Link -->
+        <a href="../" style="font-size: var(--font-size-sm); text-decoration: none; margin-right: var(--spacing-sm);">&larr; Hub</a>
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Header Section -->
+    <header class="header">
+      <h1 class="header__title">ChatGPT Share Exporter</h1>
+      <p class="header__subtitle">
+        Export public ChatGPT conversations into structured Markdown (.md), JSON Lines (.jsonl), and Plain Text (.txt) files. Fast, private, and client-rendered.
+      </p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main" id="main-content">
+      <!-- Input Card -->
+      <div class="card" style="margin-bottom: var(--spacing-lg);">
+        <h2 class="card__title">1. Load Shared Conversation</h2>
+        <p class="card__description" style="font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm);">
+          Paste a public ChatGPT share URL (e.g., https://chatgpt.com/share/...) or share UUID.
+        </p>
+
+        <div class="form-group">
+          <label for="input-share-url" class="label">
+            Share URL or UUID
+          </label>
+          <div style="display: flex; gap: var(--spacing-sm); margin-top: 4px;">
+            <input type="text" id="input-share-url" class="input" style="flex-grow: 1;" placeholder="https://chatgpt.com/share/6aa1d178-350c-83e9-a514-4cd6e6698087" required>
+            <button type="button" id="btn-fetch" class="button button--primary" style="white-space: nowrap;">Fetch Chat</button>
+          </div>
+        </div>
+
+        <!-- Optional offline raw JSON paste toggle -->
+        <details style="margin-top: var(--spacing-xs); font-size: var(--font-size-sm); color: var(--text-muted);">
+          <summary style="cursor: pointer; user-select: none;">Offline Mode: Paste Raw JSON directly</summary>
+          <div style="margin-top: var(--spacing-sm);">
+            <textarea id="textarea-raw-json" class="textarea" placeholder="Paste full JSON from ChatGPT share endpoint here for 100% offline parsing..." style="min-height: 120px; font-family: var(--font-mono); font-size: var(--font-size-xs);"></textarea>
+            <button type="button" id="btn-parse-raw" class="button" style="margin-top: var(--spacing-xs);">Parse Local JSON</button>
+          </div>
+        </details>
+
+        <div id="fetch-status" style="margin-top: var(--spacing-sm); display: none;"></div>
+      </div>
+
+      <!-- Overview and Export Card (Hidden initially) -->
+      <div id="export-card" class="card" style="margin-bottom: var(--spacing-lg); display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--spacing-sm);">
+          <div>
+            <h2 id="chat-title" class="card__title" style="word-break: break-word;">Conversation Title</h2>
+            <div id="chat-meta" style="display: flex; gap: var(--spacing-xs); flex-wrap: wrap; margin-top: var(--spacing-xs);">
+              <!-- Injected pills -->
+            </div>
+          </div>
+          <span class="badge badge--success">Ready to Export</span>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: var(--spacing-md); margin-top: var(--spacing-md);">
+          <label class="label" style="margin-bottom: var(--spacing-xs); display: block;">Export Formats:</label>
+          <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+            <button type="button" id="btn-download-md" class="button button--primary">Download .md</button>
+            <button type="button" id="btn-download-jsonl" class="button button--primary">Download .jsonl</button>
+            <button type="button" id="btn-download-txt" class="button button--primary">Download .txt</button>
+            <button type="button" id="btn-copy-md" class="button">Copy Markdown</button>
+          </div>
+          <div id="copy-feedback" style="font-size: var(--font-size-xs); color: var(--text-muted); margin-top: var(--spacing-xs); display: none;">
+            Copied to clipboard!
+          </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div style="margin-top: var(--spacing-lg);">
+          <div class="tab-container" role="tablist">
+            <button id="tab-preview-md" class="tab-button tab-button--active" role="tab" aria-selected="true">Markdown View</button>
+            <button id="tab-preview-jsonl" class="tab-button" role="tab" aria-selected="false">JSONL View</button>
+            <button id="tab-preview-txt" class="tab-button" role="tab" aria-selected="false">Plain Text View</button>
+          </div>
+
+          <pre id="preview-panel" class="results-panel" style="display: block; max-height: 380px;"></pre>
+        </div>
+      </div>
+
+      <!-- Information Callout -->
+      <div class="callout">
+        <h3 class="callout__title">About ChatGPT Export Formats</h3>
+        <p class="callout__text" style="color: var(--text-muted);">
+          <strong>Markdown (.md):</strong> Formatted transcript with YAML/metadata header, turn headers, code blocks, and dividers. Ideal for Obsidian, Notion, and human reading.<br><br>
+          <strong>JSON Lines (.jsonl):</strong> One JSON object per line containing role, content, and turn index. Standard format for LLM prompt evaluation, fine-tuning datasets, and agent context ingestion.<br><br>
+          <strong>Plain Text (.txt):</strong> Unformatted conversational transcript separated by readable headers. Ideal for quick terminal inspection (grep, cat).
+        </p>
+      </div>
+
+      <!-- Transparency Banner -->
+      <section class="transparency-banner" aria-labelledby="transparency-title">
+        <h3 class="transparency-banner__title" id="transparency-title">Zero Data Retention</h3>
+        <p class="transparency-banner__text">
+          Exported chats are never saved to a database, logged, or retained. The worker functions solely as a stateless CORS proxy, while file parsing and formatting run 100% inside your local browser.
+        </p>
+      </section>
+
+      <!-- Advertisement Area -->
+      <aside class="ad-section" aria-label="Sponsored Content">
+        <div class="ad-section__slot">
+          Advertisement Slot (AdsTerra / EthicalAds)
+        </div>
+      </aside>
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="footer">
+      <div class="footer__credits">
+        &copy; 2026 <a href="https://gregorium.com" target="_blank" rel="noopener">gregorium.com</a>. All rights reserved.
+      </div>
+      <div class="footer__links">
+        <a href="https://github.com/GustavoLGregorio/dev-toolbox" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/GustavoLGregorio/dev-toolbox/tree/main/docs" target="_blank" rel="noopener">Docs (Agent-ready)</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
