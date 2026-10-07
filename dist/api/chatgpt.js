@@ -64,31 +64,50 @@ function parseTurboStream(html) {
 }
 
 async function fetchConversation(shareId) {
-  const commonHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Upgrade-Insecure-Requests': '1',
-  };
+  const userAgents = [
+    'Twitterbot/1.0',
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+    'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  ];
 
-  // Attempt 1: Internal backend-api REST endpoint
+  // Strategy 1: Iterate SSR HTML fetching with crawler profiles allowed through WAF
+  for (const ua of userAgents) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const htmlRes = await fetch(`https://chatgpt.com/share/${shareId}`, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': ua,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+      clearTimeout(timeout);
+
+      if (htmlRes.ok) {
+        const htmlText = await htmlRes.text();
+        const extracted = parseTurboStream(htmlText);
+        if (extracted && (extracted.linear_conversation || extracted.mapping)) {
+          return { success: true, data: extracted };
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Strategy 2: Direct backend-api fallback
   try {
-    const controller1 = new AbortController();
-    const timeout1 = setTimeout(() => controller1.abort(), 8000);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
     const apiRes = await fetch(`https://chatgpt.com/backend-api/share/${shareId}`, {
-      signal: controller1.signal,
+      signal: controller.signal,
       headers: {
-        ...commonHeaders,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'application/json',
       },
     });
-    clearTimeout(timeout1);
+    clearTimeout(timeout);
 
     if (apiRes.ok) {
       const data = await apiRes.json();
@@ -97,32 +116,6 @@ async function fetchConversation(shareId) {
       }
     }
   } catch (_) {}
-
-  // Attempt 2: Public SSR HTML page with turbo-stream parsing
-  try {
-    const controller2 = new AbortController();
-    const timeout2 = setTimeout(() => controller2.abort(), 10000);
-    const htmlRes = await fetch(`https://chatgpt.com/share/${shareId}`, {
-      signal: controller2.signal,
-      headers: {
-        ...commonHeaders,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    });
-    clearTimeout(timeout2);
-
-    if (htmlRes.ok) {
-      const htmlText = await htmlRes.text();
-      const extracted = parseTurboStream(htmlText);
-      if (extracted && (extracted.linear_conversation || extracted.mapping)) {
-        return { success: true, data: extracted };
-      }
-    } else {
-      return { success: false, status: htmlRes.status, error: `ChatGPT returned HTTP ${htmlRes.status}` };
-    }
-  } catch (err) {
-    return { success: false, status: 500, error: err.message };
-  }
 
   return { success: false, status: 404, error: 'Could not extract conversation data from share link.' };
 }
