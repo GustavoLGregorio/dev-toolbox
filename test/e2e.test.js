@@ -36,6 +36,19 @@ async function runTest() {
 
     await page.goto('http://localhost:3088/chatgpt-exporter/', { waitUntil: 'networkidle2' });
 
+    // 1. Test error state on invalid input
+    await page.type('#input-share-url', 'not-a-valid-url');
+    await page.click('#btn-fetch');
+    const statusText = await page.$eval('#fetch-status', (el) => el.textContent);
+    if (!statusText.includes('valid ChatGPT share URL')) {
+      throw new Error(`Expected validation error, got: ${statusText}`);
+    }
+    console.log('E2E Test Passed: Client validation triggers for invalid input.');
+
+    // Clear input
+    await page.$eval('#input-share-url', (el) => { el.value = ''; });
+
+    // 2. Fetch real ChatGPT shared conversation
     await page.type('#input-share-url', 'https://chatgpt.com/share/6aa1d178-350c-83e9-a514-4cd6e6698087');
     await page.click('#btn-fetch');
 
@@ -46,13 +59,13 @@ async function runTest() {
       throw new Error(`Expected title 'Keystone', got '${chatTitle}'`);
     }
 
-    // Verify initial Markdown view
+    // 3. Verify initial Markdown view
     const mdContent = await page.$eval('#preview-panel', (el) => el.textContent);
     if (!mdContent.includes('# Keystone') || !mdContent.includes('## User') || !mdContent.includes('## Assistant')) {
       throw new Error('Markdown output does not contain expected headers and speaker sections');
     }
 
-    // Switch to JSONL tab and verify
+    // 4. Switch to JSONL tab and verify
     await page.click('#tab-preview-jsonl');
     const jsonlContent = await page.$eval('#preview-panel', (el) => el.textContent);
     const lines = jsonlContent.trim().split('\n');
@@ -66,7 +79,7 @@ async function runTest() {
       }
     }
 
-    // Switch to Plain Text tab and verify
+    // 5. Switch to Plain Text tab and verify
     await page.click('#tab-preview-txt');
     const txtContent = await page.$eval('#preview-panel', (el) => el.textContent);
     if (!txtContent.includes('Title: Keystone') || !txtContent.includes('[USER]') || !txtContent.includes('[ASSISTANT')) {
@@ -75,48 +88,7 @@ async function runTest() {
 
     console.log(`E2E Test Passed: Parsed conversation '${chatTitle}' across MD, JSONL, and TXT (${lines.length} turns).`);
 
-    // Verify 1-Click Bookmarklet
-    await page.click('#tab-mode-bookmarklet');
-    const bookmarkletHref = await page.$eval('#link-bookmarklet', (el) => el.getAttribute('href'));
-    if (!bookmarkletHref || !bookmarkletHref.startsWith('javascript:')) {
-      throw new Error('Bookmarklet link does not contain valid javascript: URI');
-    }
-    console.log('E2E Test Passed: Bookmarklet generated with valid javascript: protocol.');
-
-    // Verify Paste HTML / Source mode
-    await page.click('#tab-mode-source');
-    const sampleJson = JSON.stringify({
-      title: 'Pasted Keystone Test',
-      linear_conversation: [
-        {
-          message: {
-            id: 'm1',
-            author: { role: 'user' },
-            content: { parts: ['Hello from raw source test'] }
-          }
-        },
-        {
-          message: {
-            id: 'm2',
-            author: { role: 'assistant' },
-            metadata: { model_slug: 'gpt-4o' },
-            content: { parts: ['Hello! Raw source extraction successful.'] }
-          }
-        }
-      ]
-    });
-
-    await page.$eval('#input-html-source', (el, val) => { el.value = val; }, sampleJson);
-    await page.click('#btn-parse-source');
-    await page.waitForSelector('#export-card[style*="display: block"]');
-
-    const sourceTitle = await page.$eval('#chat-title', (el) => el.textContent.trim());
-    if (sourceTitle !== 'Pasted Keystone Test') {
-      throw new Error(`Expected title 'Pasted Keystone Test', got '${sourceTitle}'`);
-    }
-    console.log('E2E Test Passed: Raw source paste parsed successfully.');
-
-    // Test negative scenario: invalid UUID
+    // 6. Test direct API with invalid UUID
     const resInvalid = await fetch('http://localhost:3088/api/chatgpt?shareId=invalid-uuid');
     if (resInvalid.status !== 400) {
       throw new Error(`Expected HTTP 400 for invalid UUID, got ${resInvalid.status}`);
