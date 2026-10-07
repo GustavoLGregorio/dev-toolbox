@@ -29,9 +29,9 @@ export default {
       });
     }
 
-    // Only allow POST requests for actual logic
-    if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'Method Not Allowed. Use POST.' }), {
+    // Allow GET and POST requests for logic
+    if (request.method !== 'GET' && request.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method Not Allowed. Use GET or POST.' }), {
         status: 405,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -40,15 +40,17 @@ export default {
     const action = url.searchParams.get('action');
     const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-    // Parse request body JSON
+    // Parse request body JSON if POST
     let body = {};
-    try {
-      body = await request.json();
-    } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid JSON payload.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (request.method === 'POST') {
+      try {
+        body = await request.json();
+      } catch (e) {
+        return new Response(JSON.stringify({ error: 'Invalid JSON payload.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // ==========================================
@@ -274,6 +276,79 @@ export default {
         status: lastStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // ==========================================
+    // Action: CHATGPT SHARE EXPORTER PROXY
+    // ==========================================
+    else if (action === 'chatgpt_share') {
+      let shareId = body.shareId || url.searchParams.get('shareId');
+      const shareUrl = body.url || url.searchParams.get('url');
+
+      if (!shareId && shareUrl) {
+        const match = shareUrl.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+        if (match) {
+          shareId = match[1];
+        }
+      }
+
+      // Strict UUID validation to prevent SSRF
+      const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+      if (!shareId || !uuidRegex.test(shareId)) {
+        return new Response(JSON.stringify({ error: 'Invalid or missing shareId UUID.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // KV Rate Limiter: Max 500 exports per IP per day + 2s cooldown
+      const chatgptLimitKey = `rate_chatgpt_${clientIp}`;
+      const limitResult = await enforceRateLimit(env.DEV_INDEXNOW_KV, chatgptLimitKey, 500, 86400);
+      if (limitResult.limited) {
+        const errorMsg = limitResult.reason === 'cooldown'
+          ? 'Too many requests. Please wait at least 2 seconds between requests.'
+          : 'Daily limit exceeded: Max 500 chat exports per day.';
+        return new Response(JSON.stringify({ error: errorMsg }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const targetApiUrl = `https://chatgpt.com/backend-api/share/${shareId}`;
+        const response = await fetch(targetApiUrl, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'application/json'
+          }
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          return new Response(JSON.stringify({
+            error: `ChatGPT returned HTTP ${response.status}. The share link may be private or deleted.`
+          }), {
+            status: response.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const data = await response.json();
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        const errorMsg = err.name === 'AbortError' ? 'Connection timed out (10s)' : err.message;
+        return new Response(JSON.stringify({ error: `Could not fetch conversation: ${errorMsg}` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // Default action fallback
