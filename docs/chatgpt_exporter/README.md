@@ -20,7 +20,7 @@ Developers frequently use ChatGPT for architectural brainstorms, research, and p
 Unlike traditional scrapers that rely on resource-heavy headless browsers (Chromium/Playwright/Puppeteer), this tool uses direct HTTP requests:
 
 1. **Extraction Source:** ChatGPT exposes public share data directly at `https://chatgpt.com/backend-api/share/<shareId>`.
-2. **Stateless Serverless Proxy:** Browsers cannot directly query OpenAI due to CORS policies. The proxy is deployed as a serverless API route on Vercel in [../../dist/api/chatgpt.js](../../dist/api/chatgpt.js) (and mirrored in Cloudflare Worker [../../worker/src/index.js](../../worker/src/index.js)), resolving requests on the same origin without CORS barriers.
+2. **Stateless Serverless Proxy:** Browsers cannot directly query OpenAI due to CORS policies. The proxy is deployed as a native Vercel Node.js Serverless Function in [../../dist/api/chatgpt.js](../../dist/api/chatgpt.js), resolving requests on the same origin without CORS barriers.
 3. **SSRF Prevention:** The proxy strictly validates the `shareId` parameter against a UUID v4 hexadecimal regex (`^[a-f0-9-]{36}$`) to block arbitrary URL requests.
 4. **Client-Side Rendering:** File generation (.md, .jsonl, .txt) and downloads occur entirely inside the user's browser using native `Blob` and `URL.createObjectURL()`.
 
@@ -49,13 +49,12 @@ Unlike traditional scrapers that rely on resource-heavy headless browsers (Chrom
 
 ---
 
-## 4. Rate Limiting & Abuse Prevention
+## 4. Rate Limiting & Edge Caching
 
-The Cloudflare Worker proxy enforces per-IP limits using the `DEV_INDEXNOW_KV` namespace:
-- **Key Format:** `rate_chatgpt_<client_ip>`
-- **Quota:** Maximum 500 share fetches per IP per day (24-hour rolling window).
-- **Cooldown:** 2-second debounce between consecutive requests.
-- **Excess Action:** Returns HTTP 429 Too Many Requests.
+The Vercel Serverless proxy enforces strict security and edge caching:
+- **UUID Validation:** Strictly enforces valid UUID formatting on `shareId` before initiating any upstream requests.
+- **Edge Caching:** Sets `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` so repeated requests for the same share link are served from the edge cache, minimizing origin requests.
+- **Stateless Execution:** Runs in Node.js serverless runtime with zero persistent storage of user conversations.
 
 ---
 
@@ -64,4 +63,3 @@ The Cloudflare Worker proxy enforces per-IP limits using the `DEV_INDEXNOW_KV` n
 - Global architecture index: [../README.md](../README.md)
 - Tool frontend files: [../../dist/chatgpt-exporter/](../../dist/chatgpt-exporter/)
 - Vercel API route: [../../dist/api/chatgpt.js](../../dist/api/chatgpt.js)
-- Backend worker implementation: [../../worker/src/index.js](../../worker/src/index.js)

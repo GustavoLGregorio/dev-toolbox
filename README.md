@@ -63,7 +63,7 @@ Detailed architectural rules, philosophy, and constraints are documented in [./d
 | :--- | :--- | :--- | :--- |
 | **Toolbox Hub** | [./dist/index.html](./dist/index.html) | Static / Client | [./docs/README.md](./docs/README.md) |
 | **IndexNow Submitter** | [./dist/indexnow/](./dist/indexnow/) | Hybrid (CF Worker) | [./docs/index_now/API_LIMITS.md](./docs/index_now/API_LIMITS.md) |
-| **ChatGPT Share Exporter** | [./dist/chatgpt-exporter/](./dist/chatgpt-exporter/) | Hybrid (CF Worker / Client) | [./docs/chatgpt_exporter/README.md](./docs/chatgpt_exporter/README.md) |
+| **ChatGPT Share Exporter** | [./dist/chatgpt-exporter/](./dist/chatgpt-exporter/) | Hybrid (Vercel Serverless / Client) | [./docs/chatgpt_exporter/README.md](./docs/chatgpt_exporter/README.md) |
 | **Backend Worker** | [./worker/](./worker/) | Cloudflare Workers + KV | [./docs/index_now/API_LIMITS.md](./docs/index_now/API_LIMITS.md) |
 
 ---
