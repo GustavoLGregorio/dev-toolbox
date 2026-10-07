@@ -1,8 +1,3 @@
-export const config = {
-  runtime: 'nodejs',
-  maxDuration: 30,
-};
-
 function extractShareId(input) {
   if (!input) return null;
   const match = String(input).match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
@@ -170,11 +165,70 @@ async function fetchConversation(shareId) {
   return { success: false, status: 404, error: 'Could not extract conversation data from share link.', details: attempts };
 }
 
-export default async function handler(request, response) {
-  if (response && typeof response.status === 'function') {
-    return handleNode(request, response);
+function sendNodeJson(res, statusCode, data, headers = {}) {
+  for (const [key, val] of Object.entries(headers)) {
+    if (typeof res.setHeader === 'function') {
+      res.setHeader(key, val);
+    }
   }
-  return handleEdge(request);
+  if (typeof res.status === 'function' && typeof res.json === 'function') {
+    return res.status(statusCode).json(data);
+  }
+  res.statusCode = statusCode;
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Content-Type', 'application/json');
+  }
+  res.end(JSON.stringify(data));
+}
+
+async function handleNode(req, res) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
+  for (const [key, val] of Object.entries(corsHeaders)) {
+    if (typeof res.setHeader === 'function') {
+      res.setHeader(key, val);
+    }
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    return res.end();
+  }
+
+  let shareParam = null;
+  if (req.query && typeof req.query === 'object') {
+    shareParam = req.query.shareId || req.query.url;
+  }
+  if (!shareParam && req.url) {
+    try {
+      const parsedUrl = new URL(req.url, 'http://localhost');
+      shareParam = parsedUrl.searchParams.get('shareId') || parsedUrl.searchParams.get('url');
+    } catch (_) {}
+  }
+  if (!shareParam && req.body && typeof req.body === 'object') {
+    shareParam = req.body.shareId || req.body.url;
+  }
+
+  const shareId = extractShareId(shareParam);
+  if (!shareId) {
+    return sendNodeJson(res, 400, { error: 'Invalid or missing shareId UUID.' });
+  }
+
+  const result = await fetchConversation(shareId);
+  if (result.success) {
+    return sendNodeJson(res, 200, result.data, {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    });
+  }
+
+  return sendNodeJson(res, result.status || 500, {
+    error: result.error || 'Failed to fetch conversation.',
+    details: result.details,
+  });
 }
 
 async function handleEdge(request) {
@@ -188,7 +242,7 @@ async function handleEdge(request) {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  const url = new URL(request.url);
+  const url = new URL(request.url, 'http://localhost');
   let shareParam = url.searchParams.get('shareId') || url.searchParams.get('url');
 
   if (!shareParam && request.method === 'POST') {
@@ -224,39 +278,19 @@ async function handleEdge(request) {
   });
 }
 
-async function handleNode(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+export default async function handler(request, response) {
+  try {
+    if (response != null) {
+      return await handleNode(request, response);
+    }
+    return await handleEdge(request);
+  } catch (fatalErr) {
+    if (response != null) {
+      return sendNodeJson(response, 500, { error: `Server error: ${fatalErr.message}` });
+    }
+    return new Response(JSON.stringify({ error: `Server error: ${fatalErr.message}` }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-
-  let shareParam = null;
-  if (req.query) {
-    shareParam = req.query.shareId || req.query.url;
-  }
-  if (!shareParam && req.url) {
-    try {
-      const parsedUrl = new URL(req.url, 'http://localhost');
-      shareParam = parsedUrl.searchParams.get('shareId') || parsedUrl.searchParams.get('url');
-    } catch (_) {}
-  }
-  if (!shareParam && req.body) {
-    shareParam = req.body.shareId || req.body.url;
-  }
-
-  const shareId = extractShareId(shareParam);
-  if (!shareId) {
-    return res.status(400).json({ error: 'Invalid or missing shareId UUID.' });
-  }
-
-  const result = await fetchConversation(shareId);
-  if (result.success) {
-    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
-    return res.status(200).json(result.data);
-  }
-
-  return res.status(result.status || 500).json({ error: result.error || 'Failed to fetch conversation.', details: result.details });
 }
