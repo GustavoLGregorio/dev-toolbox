@@ -278,7 +278,7 @@ async function handleEdge(request) {
   });
 }
 
-export default async function handler(request, response) {
+async function handler(request, response) {
   try {
     if (response != null) {
       return await handleNode(request, response);
@@ -294,3 +294,6 @@ export default async function handler(request, response) {
     });
   }
 }
+
+module.exports = handler;
+module.exports.default = handler;
