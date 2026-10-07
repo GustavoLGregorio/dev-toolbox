@@ -5,7 +5,7 @@ Welcome, Agent. This document details the architectural decisions and active imp
 ---
 
 ## 1. Context of the Challenge
-Because of web browser CORS (Cross-Origin Resource Sharing) restrictions, clients cannot directly fetch a user's `sitemap.xml` file or send POST requests directly to `api.indexnow.org` without experiencing CORS blocks. To enable these features seamlessly, the IndexNow Submitter utility utilizes a Cloudflare Worker proxy (`worker/src/index.js`).
+Because of web browser CORS (Cross-Origin Resource Sharing) restrictions, clients cannot directly fetch a user's `sitemap.xml` file or send POST requests directly to `api.indexnow.org` without experiencing CORS blocks. To enable these features seamlessly, the IndexNow Submitter utility utilizes a Cloudflare Worker proxy ([../../worker/src/index.js](../../worker/src/index.js)).
 
 ### The Abuse Vector
 As a public, unauthenticated endpoint, our Worker is vulnerable to:

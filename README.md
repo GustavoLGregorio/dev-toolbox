@@ -1,71 +1,114 @@
 # dev.gregorium.com
 
-Gregorium developer utilities portal. A lightweight, high-performance, transparent developer hub hosting free online utility tools.
+Developer utilities toolbox. A lightweight, high-performance, transparent developer hub hosting free online utility tools.
 
-Currently launching with the **IndexNow Submitter** tool under `/indexnow`.
-
----
-
-## Technical Stack
-- **Frontend Hosting:** Vercel (serves the `dist/` directory as root).
-- **Backend APIs:** Cloudflare Workers (source code inside the `worker/` directory).
-- **Package & Runtime Manager:** Bun
-- **Key-Value Store:** Cloudflare KV (`DEV_INDEXNOW_KV` namespace used for IP-based rate limiting).
+The platform is designed around independent tools without forced coherence between them: an ultra-fast initial hub for tool selection, where each utility follows a minimalist pattern focused on extreme loading and execution performance.
 
 ---
 
-## Project Structure
-- `/dist`: Public static assets (HTML, CSS, JS and pages) served directly by Vercel. Contains its own simplified `vercel.json` config.
-- `/worker`: Cloudflare Worker source code, package config, and `wrangler.jsonc` file.
-- `/docs`: Markdown documentation (optimized for AI Agents).
+## Architecture Overview
+
+```
+.
+|-- dist/                     # Static frontend root (deployed on Vercel)
+|   |-- index.html            # Central toolbox hub with instant client-side search
+|   |-- index.css             # High-performance base styles (system fonts, dark/light vars)
+|   |-- index.js              # Theme manager and real-time hub filter (< 1ms)
+|   |-- vercel.json           # Clean URLs, cache-control, and security headers
+|   `-- indexnow/             # Tool: IndexNow Submitter
+|       |-- index.html        # Tool UI
+|       `-- indexnow.js       # Client logic with browser parsing & API connector
+|-- worker/                   # Cloudflare Worker backend
+|   |-- src/
+|   |   `-- index.js          # Stateless proxy (CORS bypass, IndexNow submissions, rate limiter)
+|   |-- wrangler.jsonc        # Worker config and Cloudflare KV bindings
+|   `-- package.json          # Wrangler tooling dependencies
+`-- docs/                     # Comprehensive architecture and module docs
+    |-- README.md             # Architecture guidelines, philosophy, and agent index
+    `-- index_now/
+        `-- API_LIMITS.md     # Abuse prevention, rate limits, and fallback routing
+```
+
+Detailed architectural rules, philosophy, and constraints are documented in [./docs/README.md](./docs/README.md).
+
+---
+
+## Tool Categories & Execution Strategy
+
+1. **Tier 1: 100% Client-Side Tools (Local Browser Execution)**
+   - Executes entirely within the developer's browser using native Web APIs (`crypto.subtle`, `DOMParser`, `FileReader`, `JSON`, etc.).
+   - Zero network round-trips, zero backend cost, works offline, and guarantees privacy (data never leaves the machine).
+   - Examples: Formatters, hash generators, regex testers, UUID generators, encoders/decoders.
+
+2. **Tier 2: Hybrid Tools (Cloudflare Worker Proxy)**
+   - Used only when browser restrictions (CORS or server-to-server protocols) require an intermediary.
+   - Proxied via the stateless worker in [./worker/src/index.js](./worker/src/index.js), protected by IP rate-limiting in Cloudflare KV.
+   - Example: IndexNow submitter and remote sitemap fetcher in [./dist/indexnow/](./dist/indexnow/).
+
+---
+
+## Performance Standards
+
+- **Zero Framework Bloat:** Pure HTML5, modern vanilla CSS, and vanilla ES modules. No React, Vue, Next.js, or Tailwind runtimes.
+- **System Typography:** Zero render-blocking `@import` or external font networks. Fonts render instantly via modern system font stacks with zero layout shift.
+- **Zero FOUC:** Theme preference is evaluated synchronously in `<head>` before CSS paints, preventing flashes between dark and light modes.
+- **Instant Search:** Central hub filters tools in real time via DOM events without extra libraries or delays.
+
+---
+
+## Available Modules
+
+| Tool / Module | Location | Execution Mode | Documentation |
+| :--- | :--- | :--- | :--- |
+| **Toolbox Hub** | [./dist/index.html](./dist/index.html) | Static / Client | [./docs/README.md](./docs/README.md) |
+| **IndexNow Submitter** | [./dist/indexnow/](./dist/indexnow/) | Hybrid (CF Worker) | [./docs/index_now/API_LIMITS.md](./docs/index_now/API_LIMITS.md) |
+| **Backend Worker** | [./worker/](./worker/) | Cloudflare Workers + KV | [./docs/index_now/API_LIMITS.md](./docs/index_now/API_LIMITS.md) |
 
 ---
 
 ## Local Development
 
-To test the entire platform end-to-end, you can run the Vercel static dev server and the local Cloudflare Wrangler dev server concurrently.
+You can run the Vercel static dev server and the local Cloudflare Wrangler emulator concurrently.
 
 ### 1. Install Dependencies
-Ensure you have [Bun](https://bun.sh) installed. Run at the root of the project:
+Ensure you have [Bun](https://bun.sh) installed. Run at project root:
 ```bash
 bun install
 ```
-Also install the worker dependencies:
+Install worker dependencies:
 ```bash
 cd worker && bun install && cd ..
 ```
 
-### 2. Run the Servers
-
-#### Step A: Start Vercel Dev (Frontend)
-From the root of the project, run:
+### 2. Start Frontend Server
+From the root of the repository:
 ```bash
 bun start
 ```
-This starts the static server at `http://localhost:3000`.
+Starts the static frontend server at `http://localhost:3000`.
 
-#### Step B: Start Wrangler Dev (Backend Worker)
-In a separate terminal tab, run:
+### 3. Start Backend Worker (Optional for Tier 2 Tools)
+In a separate terminal:
 ```bash
 cd worker
 bunx wrangler dev
 ```
-This runs the Cloudflare Worker emulator at `http://localhost:8787` with local KV simulation enabled.
+Starts the Cloudflare Worker emulator at `http://localhost:8787` with local KV simulation.
 
-*Note: The frontend script in `dist/indexnow/indexnow.js` automatically detects when it is running on `localhost` and routes API requests to the Wrangler local server on port 8787.*
+*Note: Frontend scripts automatically route requests to `http://localhost:8787` when running on `localhost`.*
 
 ---
 
 ## Deployment
 
 ### Frontend (Vercel)
-To deploy the static assets manually (or you can use GitHub Vercel integration, which deploys automatically on push):
+The Vercel project root is configured to serve the `./dist` directory.
 ```bash
 bun run deploy
 ```
 
 ### Backend (Cloudflare Worker)
-To deploy the Worker to your Cloudflare account:
+To deploy updates to the Cloudflare Worker:
 ```bash
 cd worker
 bunx wrangler deploy
@@ -73,5 +116,8 @@ bunx wrangler deploy
 
 ---
 
-## AI Agent Integration
-If you are an AI Coding Agent working on this project, please consult the instructions and contextual information inside **[docs/README.md](file:///home/gustavo/Projects/dev_indexnow/docs/README.md)** first.
+## Documentation Index
+
+For in-depth guides and design decisions, refer to:
+- [./docs/README.md](./docs/README.md): Primary architecture overview and contributor guide.
+- [./docs/index_now/API_LIMITS.md](./docs/index_now/API_LIMITS.md): IndexNow proxy limits and abuse prevention.
