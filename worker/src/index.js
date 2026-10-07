@@ -318,6 +318,7 @@ export default {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
+        // Attempt 1: Direct backend-api
         const targetApiUrl = `https://chatgpt.com/backend-api/share/${shareId}`;
         const response = await fetch(targetApiUrl, {
           signal: controller.signal,
@@ -326,20 +327,44 @@ export default {
             'Accept': 'application/json'
           }
         });
-        clearTimeout(timeoutId);
 
-        if (!response.ok) {
-          return new Response(JSON.stringify({
-            error: `ChatGPT returned HTTP ${response.status}. The share link may be private or deleted.`
-          }), {
-            status: response.status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && (data.linear_conversation || data.mapping)) {
+            clearTimeout(timeoutId);
+            return new Response(JSON.stringify(data), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
         }
 
-        const data = await response.json();
-        return new Response(JSON.stringify(data), {
-          status: 200,
+        // Attempt 2: SSR HTML stream parsing
+        const htmlRes = await fetch(`https://chatgpt.com/share/${shareId}`, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Twitterbot/1.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          }
+        });
+        clearTimeout(timeoutId);
+
+        if (htmlRes.ok) {
+          const htmlText = await htmlRes.text();
+          const extracted = parseTurboStream(htmlText);
+          if (extracted && (extracted.linear_conversation || extracted.mapping)) {
+            return new Response(JSON.stringify(extracted), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        }
+
+        return new Response(JSON.stringify({
+          error: `ChatGPT returned HTTP ${htmlRes.status || response.status}. The share link may be private or deleted.`
+        }), {
+          status: htmlRes.status || response.status || 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       } catch (err) {
@@ -414,3 +439,53 @@ async function enforceRateLimit(kvNamespace, key, maxCount, windowSeconds) {
     return { limited: false, reason: null }; // Fail open to keep service running
   }
 }
+
+function parseTurboStream(html) {
+  const match = html.match(/window\.__reactRouterContext\.streamController\.enqueue\(\"((?:\\\\.|[^\"])*)\"\)/);
+  if (!match) return null;
+
+  try {
+    const rawJson = JSON.parse('"' + match[1] + '"');
+    const parsed = JSON.parse(rawJson);
+    if (!Array.isArray(parsed)) return null;
+
+    function unflatten(idx, depth = 0) {
+      if (idx < 0 || idx >= parsed.length || depth > 30) return null;
+      const val = parsed[idx];
+      if (val && typeof val === 'object' && !Array.isArray(val)) {
+        const res = {};
+        for (const [k, v] of Object.entries(val)) {
+          if (k.startsWith('_')) {
+            const keyIdx = parseInt(k.slice(1), 10);
+            const realKey = keyIdx >= 0 && keyIdx < parsed.length ? parsed[keyIdx] : k;
+            res[realKey] = typeof v === 'number' && v >= 0 ? unflatten(v, depth + 1) : v;
+          } else {
+            res[k] = typeof v === 'number' && v >= 0 ? unflatten(v, depth + 1) : v;
+          }
+        }
+        return res;
+      } else if (Array.isArray(val)) {
+        return val.map((x) => (typeof x === 'number' && x >= 0 ? unflatten(x, depth + 1) : x));
+      }
+      return val;
+    }
+
+    for (let i = 0; i < Math.min(parsed.length, 100); i++) {
+      const item = unflatten(i);
+      if (item && typeof item === 'object') {
+        if (item.serverResponse?.data && (item.serverResponse.data.linear_conversation || item.serverResponse.data.mapping)) {
+          return item.serverResponse.data;
+        }
+        if (item.data && (item.data.linear_conversation || item.data.mapping)) {
+          return item.data;
+        }
+        if (item.linear_conversation || item.mapping) {
+          return item;
+        }
+      }
+    }
+  } catch (_) {}
+
+  return null;
+}
+
