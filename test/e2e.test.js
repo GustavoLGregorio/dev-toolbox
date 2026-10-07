@@ -4,6 +4,7 @@ import puppeteer from 'puppeteer-core';
 async function runTest() {
   const server = Bun.serve({
     port: 3088,
+    idleTimeout: 30,
     async fetch(req) {
       const url = new URL(req.url);
       if (url.pathname.startsWith('/api/chatgpt')) {
@@ -30,6 +31,9 @@ async function runTest() {
 
   try {
     const page = await browser.newPage();
+    page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
+    page.on('pageerror', (err) => console.log('PAGE ERROR:', err));
+
     await page.goto('http://localhost:3088/chatgpt-exporter/', { waitUntil: 'networkidle2' });
 
     await page.type('#input-share-url', 'https://chatgpt.com/share/6aa1d178-350c-83e9-a514-4cd6e6698087');
