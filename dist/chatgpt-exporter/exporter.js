@@ -4,9 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchBtn = document.getElementById('btn-fetch');
   const fetchStatus = document.getElementById('fetch-status');
 
-  const rawJsonTextarea = document.getElementById('textarea-raw-json');
-  const parseRawBtn = document.getElementById('btn-parse-raw');
-
   const exportCard = document.getElementById('export-card');
   const chatTitle = document.getElementById('chat-title');
   const chatMeta = document.getElementById('chat-meta');
@@ -30,10 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // API Endpoint Resolver
   const getApiUrl = (shareId) => {
-    const base = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:8787'
-      : 'https://dev-toolbox-indexnow.gustavo-l-gregorio.workers.dev';
-    return `${base}/api/chatgpt?action=chatgpt_share&shareId=${encodeURIComponent(shareId)}`;
+    // Relative endpoint queries native Vercel serverless function on the same origin
+    return `/api/chatgpt?shareId=${encodeURIComponent(shareId)}`;
   };
 
   // Helper: Extract UUID
@@ -255,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
   tabPreviewJsonl.addEventListener('click', () => switchPreviewTab('jsonl', tabPreviewJsonl));
   tabPreviewTxt.addEventListener('click', () => switchPreviewTab('txt', tabPreviewTxt));
 
-  // Action: Fetch remote chat via Worker
+  // Action: Fetch remote chat via serverless proxy
   const fetchSharedChat = async () => {
     const rawInput = shareUrlInput.value.trim();
     const shareId = extractShareId(rawInput);
@@ -270,11 +265,25 @@ document.addEventListener('DOMContentLoaded', () => {
     showStatus('Fetching conversation from ChatGPT...', 'info');
 
     try {
-      const response = await fetch(getApiUrl(shareId), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shareId })
+      let response = await fetch(getApiUrl(shareId), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
       });
+
+      // Fallback for local emulator if running outside Vercel dev
+      if (!response.ok && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        try {
+          const fallbackUrl = `http://localhost:8787/api/chatgpt?action=chatgpt_share&shareId=${encodeURIComponent(shareId)}`;
+          const fallbackResp = await fetch(fallbackUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shareId })
+          });
+          if (fallbackResp.ok) {
+            response = fallbackResp;
+          }
+        } catch (_) {}
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -296,22 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') {
       e.preventDefault();
       fetchSharedChat();
-    }
-  });
-
-  // Action: Parse raw JSON directly (Offline mode)
-  parseRawBtn.addEventListener('click', () => {
-    const rawText = rawJsonTextarea.value.trim();
-    if (!rawText) {
-      showStatus('Please paste JSON content first.', 'error');
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(rawText);
-      renderConversationUI(parsed, 'Local Raw JSON');
-    } catch (err) {
-      showStatus(`Invalid JSON syntax: ${err.message}`, 'error');
     }
   });
 
