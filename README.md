@@ -15,6 +15,8 @@ The platform is designed around independent tools without forced coherence betwe
 |   |-- index.css             # High-performance base styles (system fonts, dark/light vars)
 |   |-- index.js              # Theme manager and real-time hub filter (< 1ms)
 |   |-- vercel.json           # Clean URLs, cache-control, and security headers
+|   |-- api/
+|   |   `-- chatgpt.js        # Vercel serverless proxy route (auto-deployed with frontend)
 |   |-- indexnow/             # Tool: IndexNow Submitter
 |   `-- chatgpt-exporter/     # Tool: ChatGPT Share Exporter (.jsonl, .md, .txt)
 |-- worker/                   # Cloudflare Worker backend

@@ -20,10 +20,9 @@ Developers frequently use ChatGPT for architectural brainstorms, research, and p
 Unlike traditional scrapers that rely on resource-heavy headless browsers (Chromium/Playwright/Puppeteer), this tool uses direct HTTP requests:
 
 1. **Extraction Source:** ChatGPT exposes public share data directly at `https://chatgpt.com/backend-api/share/<shareId>`.
-2. **Stateless CORS Proxy:** Browsers cannot directly query OpenAI due to CORS policies. The Cloudflare Worker in [../../worker/src/index.js](../../worker/src/index.js) acts as a stateless, lightweight proxy (`action=chatgpt_share`).
-3. **SSRF Prevention:** The Worker strictly validates the `shareId` parameter against a UUID v4 hexadecimal regex (`^[a-f0-9-]{36}$`) to block arbitrary URL requests.
+2. **Stateless Serverless Proxy:** Browsers cannot directly query OpenAI due to CORS policies. The proxy is deployed as a serverless API route on Vercel in [../../dist/api/chatgpt.js](../../dist/api/chatgpt.js) (and mirrored in Cloudflare Worker [../../worker/src/index.js](../../worker/src/index.js)), resolving requests on the same origin without CORS barriers.
+3. **SSRF Prevention:** The proxy strictly validates the `shareId` parameter against a UUID v4 hexadecimal regex (`^[a-f0-9-]{36}$`) to block arbitrary URL requests.
 4. **Client-Side Rendering:** File generation (.md, .jsonl, .txt) and downloads occur entirely inside the user's browser using native `Blob` and `URL.createObjectURL()`.
-5. **Offline Mode:** Users can paste raw JSON responses directly into the UI for 100% offline parsing without contacting any server.
 
 ---
 
@@ -64,4 +63,5 @@ The Cloudflare Worker proxy enforces per-IP limits using the `DEV_INDEXNOW_KV` n
 
 - Global architecture index: [../README.md](../README.md)
 - Tool frontend files: [../../dist/chatgpt-exporter/](../../dist/chatgpt-exporter/)
+- Vercel API route: [../../dist/api/chatgpt.js](../../dist/api/chatgpt.js)
 - Backend worker implementation: [../../worker/src/index.js](../../worker/src/index.js)
