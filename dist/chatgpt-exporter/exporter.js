@@ -4,6 +4,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchBtn = document.getElementById('btn-fetch');
   const fetchStatus = document.getElementById('fetch-status');
 
+  const tabModeUrl = document.getElementById('tab-mode-url');
+  const tabModeSource = document.getElementById('tab-mode-source');
+  const tabModeBookmarklet = document.getElementById('tab-mode-bookmarklet');
+  const panelModeUrl = document.getElementById('panel-mode-url');
+  const panelModeSource = document.getElementById('panel-mode-source');
+  const panelModeBookmarklet = document.getElementById('panel-mode-bookmarklet');
+  const htmlSourceInput = document.getElementById('input-html-source');
+  const parseSourceBtn = document.getElementById('btn-parse-source');
+  const linkBookmarklet = document.getElementById('link-bookmarklet');
+
   const exportCard = document.getElementById('export-card');
   const chatTitle = document.getElementById('chat-title');
   const chatMeta = document.getElementById('chat-meta');
@@ -24,6 +34,102 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentTurns = [];
   let currentSourceUrl = '';
   let activePreviewTab = 'md';
+
+  // Bookmarklet Code Setup
+  const bookmarkletCode = `javascript:(function(){try{const ctx=window.__reactRouterContext||window.__remixContext;let d=null;if(ctx&&ctx.state&&ctx.state.loaderData){for(const k of Object.keys(ctx.state.loaderData)){const r=ctx.state.loaderData[k];if(r&&r.serverResponse&&r.serverResponse.data){d=r.serverResponse.data;break;}}}if(!d){const m=document.documentElement.outerHTML.match(/window\\.__reactRouterContext\\.streamController\\.enqueue\\(\\"((?:\\\\\\\\.|[^\\"])*)\\"\\)/);if(m){const raw=JSON.parse('"'+m[1]+'"');const p=JSON.parse(raw);function uf(i,dp=0){if(i<0||i>=p.length||dp>30)return null;const v=p[i];if(v&&typeof v==='object'&&!Array.isArray(v)){const res={};for(const[k,val]of Object.entries(v)){const rk=k.startsWith('_')?p[parseInt(k.slice(1),10)]:k;res[rk]=typeof val==='number'&&val>=0?uf(val,dp+1):val;}return res;}else if(Array.isArray(v)){return v.map(x=>(typeof x==='number'&&x>=0?uf(x,dp+1):x));}return v;}for(let i=0;i<Math.min(p.length,100);i++){const it=uf(i);if(it?.serverResponse?.data?.linear_conversation){d=it.serverResponse.data;break;}if(it?.data?.linear_conversation){d=it.data;break;}}}}if(!d){alert('Could not find ChatGPT shared conversation on this page.');return;}const turns=[];for(const item of(d.linear_conversation||[])){const msg=item.message;if(!msg)continue;const role=msg.author?.role;if(role!=='user'&&role!=='assistant')continue;const parts=msg.content?.parts||[];const txt=parts.filter(x=>typeof x==='string').join('\\n\\n').trim();if(txt)turns.push({role,content:txt,model:msg.metadata?.model_slug});}const title=d.title||'ChatGPT Export';const safeTitle=title.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,50);let md='# '+title+'\\n\\n- Source: '+location.href+'\\n- Turns: '+turns.length+'\\n\\n---\\n\\n';for(const t of turns){md+='## '+(t.role==='user'?'User':'Assistant'+(t.model?' ('+t.model+')':''))+'\\n\\n'+t.content+'\\n\\n---\\n\\n';}const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=safeTitle+'.md';document.body.appendChild(a);a.click();document.body.removeChild(a);}catch(e){alert('Export failed: '+e.message);}})();`;
+  if (linkBookmarklet) {
+    linkBookmarklet.href = bookmarkletCode;
+  }
+
+  // Mode Switcher
+  const switchInputMode = (mode) => {
+    [tabModeUrl, tabModeSource, tabModeBookmarklet].forEach(t => {
+      if (t) {
+        t.classList.remove('tab-button--active');
+        t.setAttribute('aria-selected', 'false');
+      }
+    });
+    if (panelModeUrl) panelModeUrl.style.display = 'none';
+    if (panelModeSource) panelModeSource.style.display = 'none';
+    if (panelModeBookmarklet) panelModeBookmarklet.style.display = 'none';
+
+    if (mode === 'url' && tabModeUrl && panelModeUrl) {
+      tabModeUrl.classList.add('tab-button--active');
+      tabModeUrl.setAttribute('aria-selected', 'true');
+      panelModeUrl.style.display = 'block';
+    } else if (mode === 'source' && tabModeSource && panelModeSource) {
+      tabModeSource.classList.add('tab-button--active');
+      tabModeSource.setAttribute('aria-selected', 'true');
+      panelModeSource.style.display = 'block';
+    } else if (mode === 'bookmarklet' && tabModeBookmarklet && panelModeBookmarklet) {
+      tabModeBookmarklet.classList.add('tab-button--active');
+      tabModeBookmarklet.setAttribute('aria-selected', 'true');
+      panelModeBookmarklet.style.display = 'block';
+    }
+  };
+
+  if (tabModeUrl) tabModeUrl.addEventListener('click', () => switchInputMode('url'));
+  if (tabModeSource) tabModeSource.addEventListener('click', () => switchInputMode('source'));
+  if (tabModeBookmarklet) tabModeBookmarklet.addEventListener('click', () => switchInputMode('bookmarklet'));
+
+  // Parser for raw pasted source or JSON
+  const parseRawSource = (input) => {
+    if (!input || !input.trim()) return null;
+    const trimmed = input.trim();
+
+    // Case 1: Direct JSON
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.linear_conversation || parsed.mapping) return parsed;
+        if (parsed.data && (parsed.data.linear_conversation || parsed.data.mapping)) return parsed.data;
+        if (parsed.serverResponse?.data) return parsed.serverResponse.data;
+      } catch (_) {}
+    }
+
+    // Case 2: Turbo stream in HTML
+    const match = trimmed.match(/window\.__reactRouterContext\.streamController\.enqueue\(\"((?:\\\\.|[^\"])*)\"\)/);
+    if (match) {
+      try {
+        const rawJson = JSON.parse('"' + match[1] + '"');
+        const parsed = JSON.parse(rawJson);
+        if (Array.isArray(parsed)) {
+          function unflatten(idx, depth = 0) {
+            if (idx < 0 || idx >= parsed.length || depth > 30) return null;
+            const val = parsed[idx];
+            if (val && typeof val === 'object' && !Array.isArray(val)) {
+              const res = {};
+              for (const [k, v] of Object.entries(val)) {
+                const realKey = k.startsWith('_') ? parsed[parseInt(k.slice(1), 10)] : k;
+                res[realKey] = typeof v === 'number' && v >= 0 ? unflatten(v, depth + 1) : v;
+              }
+              return res;
+            } else if (Array.isArray(val)) {
+              return val.map((x) => (typeof x === 'number' && x >= 0 ? unflatten(x, depth + 1) : x));
+            }
+            return val;
+          }
+
+          for (let i = 0; i < Math.min(parsed.length, 100); i++) {
+            const item = unflatten(i);
+            if (item && typeof item === 'object') {
+              if (item.serverResponse?.data && (item.serverResponse.data.linear_conversation || item.serverResponse.data.mapping)) {
+                return item.serverResponse.data;
+              }
+              if (item.data && (item.data.linear_conversation || item.data.mapping)) {
+                return item.data;
+              }
+              if (item.linear_conversation || item.mapping) {
+                return item;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  };
 
   // API Endpoint Resolver
   const getApiUrl = (shareId) => {
@@ -293,7 +399,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await response.json();
       renderConversationUI(data, rawInput.startsWith('http') ? rawInput : `https://chatgpt.com/share/${shareId}`);
     } catch (err) {
-      showStatus(`Failed to fetch chat: ${err.message}`, 'error');
+      if (err.message && (err.message.includes('403') || err.message.includes('bot') || err.message.includes('Could not extract'))) {
+        showStatus('Cloudflare bot protection blocked automated cloud fetch. Switch to the "Paste HTML / Source" tab or use the "1-Click Bookmarklet" for instant 100% private export.', 'error');
+      } else {
+        showStatus(`Failed to fetch chat: ${err.message}`, 'error');
+      }
     } finally {
       fetchBtn.classList.remove('button--disabled');
       fetchBtn.disabled = false;
@@ -307,6 +417,26 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchSharedChat();
     }
   });
+
+  // Action: Parse raw pasted source
+  if (parseSourceBtn) {
+    parseSourceBtn.addEventListener('click', () => {
+      const raw = htmlSourceInput?.value?.trim();
+      if (!raw) {
+        showStatus('Please paste HTML page source or JSON into the field.', 'error');
+        return;
+      }
+
+      showStatus('Parsing conversation data from source...', 'info');
+      const data = parseRawSource(raw);
+      if (!data) {
+        showStatus('Could not find conversation data in the pasted content. Make sure to paste the full page source (Ctrl+U from the shared chat page).', 'error');
+        return;
+      }
+
+      renderConversationUI(data, 'Pasted ChatGPT Source');
+    });
+  }
 
   // Export Download handlers
   downloadMdBtn.addEventListener('click', () => {

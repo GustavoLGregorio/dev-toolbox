@@ -48,18 +48,57 @@
       <!-- Input Card -->
       <div class="card" style="margin-bottom: var(--spacing-lg);">
         <h2 class="card__title">1. Load Shared Conversation</h2>
-        <p class="card__description" style="font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm);">
-          Paste a public ChatGPT share URL (e.g., https://chatgpt.com/share/...) or share UUID.
-        </p>
+        
+        <div class="tab-container" role="tablist" style="margin-bottom: var(--spacing-md);">
+          <button type="button" id="tab-mode-url" class="tab-button tab-button--active" role="tab" aria-selected="true">Share URL</button>
+          <button type="button" id="tab-mode-source" class="tab-button" role="tab" aria-selected="false">Paste HTML / Source</button>
+          <button type="button" id="tab-mode-bookmarklet" class="tab-button" role="tab" aria-selected="false">1-Click Bookmarklet</button>
+        </div>
 
-        <div class="form-group">
-          <label for="input-share-url" class="label">
-            Share URL or UUID
-          </label>
-          <div style="display: flex; gap: var(--spacing-sm); margin-top: 4px;">
-            <input type="text" id="input-share-url" class="input" style="flex-grow: 1;" placeholder="https://chatgpt.com/share/6aa1d178-350c-83e9-a514-4cd6e6698087" required>
-            <button type="button" id="btn-fetch" class="button button--primary" style="white-space: nowrap;">Fetch Chat</button>
+        <!-- Mode: URL Fetch -->
+        <div id="panel-mode-url">
+          <p class="card__description" style="font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm);">
+            Paste a public ChatGPT share URL (e.g., https://chatgpt.com/share/...) or share UUID.
+          </p>
+          <div class="form-group">
+            <label for="input-share-url" class="label">
+              Share URL or UUID
+            </label>
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: 4px;">
+              <input type="text" id="input-share-url" class="input" style="flex-grow: 1;" placeholder="https://chatgpt.com/share/6aa1d178-350c-83e9-a514-4cd6e6698087">
+              <button type="button" id="btn-fetch" class="button button--primary" style="white-space: nowrap;">Fetch Chat</button>
+            </div>
           </div>
+        </div>
+
+        <!-- Mode: Paste Source / HTML -->
+        <div id="panel-mode-source" style="display: none;">
+          <p class="card__description" style="font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm);">
+            If automated cloud fetching is blocked by Cloudflare bot protection, open the shared link in your browser, press Ctrl+U (View Source) or Inspect, copy the HTML, and paste it below. 100% client-side with zero server dependency.
+          </p>
+          <div class="form-group">
+            <label for="input-html-source" class="label">
+              Page HTML or JSON Context
+            </label>
+            <textarea id="input-html-source" class="input" style="width: 100%; min-height: 120px; font-family: monospace; font-size: var(--font-size-xs); margin-top: 4px;" placeholder="Paste page source (HTML containing __reactRouterContext) or conversation JSON here..."></textarea>
+            <div style="margin-top: var(--spacing-xs);">
+              <button type="button" id="btn-parse-source" class="button button--primary">Extract Conversation</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode: 1-Click Bookmarklet -->
+        <div id="panel-mode-bookmarklet" style="display: none;">
+          <p class="card__description" style="font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm);">
+            Drag this button directly to your browser's Bookmarks bar. When you are viewing any shared ChatGPT conversation, click the bookmark to download .md, .jsonl, and .txt files in one click directly from memory.
+          </p>
+          <div style="margin: var(--spacing-md) 0;">
+            <a id="link-bookmarklet" class="button button--primary" href="#" style="text-decoration: none; display: inline-block; cursor: grab;">Export ChatGPT</a>
+            <span style="font-size: var(--font-size-xs); color: var(--text-muted); margin-left: var(--spacing-sm);">(Drag to Bookmarks bar)</span>
+          </div>
+          <p style="font-size: var(--font-size-xs); color: var(--text-muted);">
+            Zero setup, zero backend, and 100% private. Works directly within your browser session.
+          </p>
         </div>
 
         <div id="fetch-status" style="margin-top: var(--spacing-sm); display: none;"></div>
