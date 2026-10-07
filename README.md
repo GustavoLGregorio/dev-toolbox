@@ -15,18 +15,17 @@ The platform is designed around independent tools without forced coherence betwe
 |   |-- index.css             # High-performance base styles (system fonts, dark/light vars)
 |   |-- index.js              # Theme manager and real-time hub filter (< 1ms)
 |   |-- vercel.json           # Clean URLs, cache-control, and security headers
-|   `-- indexnow/             # Tool: IndexNow Submitter
-|       |-- index.html        # Tool UI
-|       `-- indexnow.js       # Client logic with browser parsing & API connector
+|   |-- indexnow/             # Tool: IndexNow Submitter
+|   `-- chatgpt-exporter/     # Tool: ChatGPT Share Exporter (.jsonl, .md, .txt)
 |-- worker/                   # Cloudflare Worker backend
 |   |-- src/
-|   |   `-- index.js          # Stateless proxy (CORS bypass, IndexNow submissions, rate limiter)
+|   |   `-- index.js          # Stateless proxy (CORS bypass, IndexNow, ChatGPT exports)
 |   |-- wrangler.jsonc        # Worker config and Cloudflare KV bindings
 |   `-- package.json          # Wrangler tooling dependencies
 `-- docs/                     # Comprehensive architecture and module docs
     |-- README.md             # Architecture guidelines, philosophy, and agent index
-    `-- index_now/
-        `-- API_LIMITS.md     # Abuse prevention, rate limits, and fallback routing
+    |-- index_now/            # IndexNow documentation & limits
+    `-- chatgpt_exporter/     # ChatGPT Exporter architecture & specs
 ```
 
 Detailed architectural rules, philosophy, and constraints are documented in [./docs/README.md](./docs/README.md).
@@ -62,6 +61,7 @@ Detailed architectural rules, philosophy, and constraints are documented in [./d
 | :--- | :--- | :--- | :--- |
 | **Toolbox Hub** | [./dist/index.html](./dist/index.html) | Static / Client | [./docs/README.md](./docs/README.md) |
 | **IndexNow Submitter** | [./dist/indexnow/](./dist/indexnow/) | Hybrid (CF Worker) | [./docs/index_now/API_LIMITS.md](./docs/index_now/API_LIMITS.md) |
+| **ChatGPT Share Exporter** | [./dist/chatgpt-exporter/](./dist/chatgpt-exporter/) | Hybrid (CF Worker / Client) | [./docs/chatgpt_exporter/README.md](./docs/chatgpt_exporter/README.md) |
 | **Backend Worker** | [./worker/](./worker/) | Cloudflare Workers + KV | [./docs/index_now/API_LIMITS.md](./docs/index_now/API_LIMITS.md) |
 
 ---

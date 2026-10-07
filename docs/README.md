@@ -27,13 +27,16 @@ This documentation root is structured by tool/topic directories. As new develope
 ```
 docs/
 |-- README.md                 # Primary architecture index (this file)
-`-- index_now/                # Context and limits for the IndexNow Submitter tool
-    `-- API_LIMITS.md         # Active KV rate limits, proxy architecture, and abuse prevention details
+|-- index_now/                # Context and limits for the IndexNow Submitter tool
+|   `-- API_LIMITS.md         # Active KV rate limits, proxy architecture, and abuse prevention details
+`-- chatgpt_exporter/         # Context and specifications for ChatGPT Share Exporter
+    `-- README.md             # Format specifications, rate limits, and zero-browser design
 ```
 
 Relative references:
 - Primary root documentation: [./README.md](./README.md)
 - IndexNow limits: [./index_now/API_LIMITS.md](./index_now/API_LIMITS.md)
+- ChatGPT Exporter specs: [./chatgpt_exporter/README.md](./chatgpt_exporter/README.md)
 - Frontend assets root: [../dist/](../dist/)
 - Backend worker root: [../worker/](../worker/)
 
