@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IndexNow Submitter | gregorium.dev</title>
   <meta name="description" content="Quickly submit URLs to the IndexNow protocol. Generate API keys, verify hosting, and upload sitemaps or CSV lists.">
+  <script>
+    (function() {
+      var saved = localStorage.getItem('theme');
+      var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="stylesheet" href="../index.css">
   <script src="../index.js" defer></script>
   <script src="./indexnow.js" defer></script>
@@ -208,8 +215,8 @@
         &copy; 2026 <a href="https://gregorium.com" target="_blank" rel="noopener">gregorium.com</a>. All rights reserved.
       </div>
       <div class="footer__links">
-        <a href="https://github.com/gregorium" target="_blank" rel="noopener">GitHub</a>
-        <a href="/docs/README.md" target="_blank">Docs (Agent-ready)</a>
+        <a href="https://github.com/GustavoLGregorio/dev-toolbox" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/GustavoLGregorio/dev-toolbox/tree/main/docs" target="_blank" rel="noopener">Docs (Agent-ready)</a>
       </div>
     </footer>
   </div>

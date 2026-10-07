@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gregorium Developer Utilities | dev.gregorium.com</title>
   <meta name="description" content="Free, premium, transparent, and lightweight utility tools for developers. Stating no data, zero bloat.">
+  <script>
+    (function() {
+      var saved = localStorage.getItem('theme');
+      var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="stylesheet" href="./index.css">
   <script src="./index.js" defer></script>
 </head>
@@ -35,6 +42,16 @@
 
     <!-- Main Content Section -->
     <main class="main" id="main-content">
+      <!-- Search Filter -->
+      <div class="search-container">
+        <input type="text" id="search-input" class="search-input" placeholder="Search tools... (Press '/' to focus)" aria-label="Search tools">
+        <span class="search-shortcut">/</span>
+      </div>
+
+      <div id="search-empty" class="search-empty">
+        No tools match your search.
+      </div>
+
       <!-- Grid of Tools -->
       <section class="card-grid" aria-label="Available Tools">
         
@@ -90,8 +107,8 @@
         &copy; 2026 <a href="https://gregorium.com" target="_blank" rel="noopener">gregorium.com</a>. All rights reserved.
       </div>
       <div class="footer__links">
-        <a href="https://github.com/gregorium" target="_blank" rel="noopener">GitHub</a>
-        <a href="/docs/README.md" target="_blank">Docs (Agent-ready)</a>
+        <a href="https://github.com/GustavoLGregorio/dev-toolbox" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/GustavoLGregorio/dev-toolbox/tree/main/docs" target="_blank" rel="noopener">Docs (Agent-ready)</a>
       </div>
     </footer>
   </div>

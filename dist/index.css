@@ -1,14 +1,12 @@
-/* Import Google Fonts: Lora for headings and Inter for body text */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap');
-
 /* Base System Variables & Theme Setup */
 :root {
   /* Let browser know we support both, matching user preferences automatically */
   color-scheme: light dark;
 
-  /* Fonts */
-  --font-heading: 'Lora', Georgia, serif;
-  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Fast native typography - zero network latency */
+  --font-heading: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Typography Sizing & Hierarchy */
   --font-size-xs: 0.75rem;
@@ -525,12 +523,59 @@ a:hover {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: var(--spacing-md);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   max-height: 250px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-all;
+  display: none;
+}
+
+/* Hub search filter */
+.search-container {
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: var(--spacing-sm) 48px var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+  outline: none;
+  transition: border-color var(--transition-speed);
+}
+
+.search-input:focus {
+  border-color: var(--text-color);
+}
+
+.search-shortcut {
+  position: absolute;
+  right: var(--spacing-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  pointer-events: none;
+  background-color: var(--card-bg);
+  line-height: 1.2;
+}
+
+.search-empty {
+  text-align: center;
+  padding: var(--spacing-xl) 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
   display: none;
 }
 
