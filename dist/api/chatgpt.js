@@ -1,5 +1,6 @@
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
+  maxDuration: 30,
 };
 
 function extractShareId(input) {
@@ -17,11 +18,14 @@ function parseTurboStream(html) {
     const parsed = JSON.parse(rawJson);
     if (!Array.isArray(parsed)) return null;
 
+    const cache = new Map();
     function unflatten(idx, depth = 0) {
       if (idx < 0 || idx >= parsed.length || depth > 30) return null;
+      if (cache.has(idx)) return cache.get(idx);
       const val = parsed[idx];
       if (val && typeof val === 'object' && !Array.isArray(val)) {
         const res = {};
+        cache.set(idx, res);
         for (const [k, v] of Object.entries(val)) {
           if (k.startsWith('_')) {
             const keyIdx = parseInt(k.slice(1), 10);
@@ -33,17 +37,28 @@ function parseTurboStream(html) {
         }
         return res;
       } else if (Array.isArray(val)) {
-        return val.map((x) => (typeof x === 'number' && x >= 0 ? unflatten(x, depth + 1) : x));
+        const res = [];
+        cache.set(idx, res);
+        for (const x of val) {
+          res.push(typeof x === 'number' && x >= 0 ? unflatten(x, depth + 1) : x);
+        }
+        return res;
       }
       return val;
     }
 
-    const serverResponse = unflatten(12);
-    if (serverResponse && serverResponse.data && (serverResponse.data.linear_conversation || serverResponse.data.mapping)) {
-      return serverResponse.data;
+    // Direct check on frequent data container indices
+    for (const testIdx of [8, 12, 11, 10, 13]) {
+      const serverResponse = unflatten(testIdx);
+      if (serverResponse && serverResponse.data && (serverResponse.data.linear_conversation || serverResponse.data.mapping)) {
+        return serverResponse.data;
+      }
+      if (serverResponse && (serverResponse.linear_conversation || serverResponse.mapping)) {
+        return serverResponse;
+      }
     }
 
-    // Secondary scan across top level elements
+    // Secondary scan across elements
     for (let i = 0; i < Math.min(parsed.length, 100); i++) {
       const item = unflatten(i);
       if (item && typeof item === 'object') {
@@ -64,27 +79,51 @@ function parseTurboStream(html) {
 }
 
 async function fetchConversation(shareId) {
-  const userAgents = [
-    'Twitterbot/1.0',
-    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
-    'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  const browserProfiles = [
+    {
+      name: 'Chrome Desktop',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+      },
+    },
+    {
+      name: 'Googlebot',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    },
+    {
+      name: 'FacebookExternalHit',
+      headers: {
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    },
   ];
 
   const attempts = [];
 
-  // Strategy 1: Iterate SSR HTML fetching with crawler profiles allowed through WAF
-  for (const ua of userAgents) {
+  // Strategy 1: Iterate SSR HTML fetching with browser and verified crawler headers
+  for (const profile of browserProfiles) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 6000);
       const htmlRes = await fetch(`https://chatgpt.com/share/${shareId}`, {
         signal: controller.signal,
-        headers: {
-          'User-Agent': ua,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
+        headers: profile.headers,
       });
       clearTimeout(timeout);
 
@@ -95,19 +134,19 @@ async function fetchConversation(shareId) {
         if (extracted && (extracted.linear_conversation || extracted.mapping)) {
           return { success: true, data: extracted };
         }
-        attempts.push({ ua: ua.slice(0, 15), status, streamParsed: false, htmlLen: htmlText.length });
+        attempts.push({ profile: profile.name, status, streamParsed: false, htmlLen: htmlText.length });
       } else {
-        attempts.push({ ua: ua.slice(0, 15), status });
+        attempts.push({ profile: profile.name, status });
       }
     } catch (err) {
-      attempts.push({ ua: ua.slice(0, 15), error: err.message });
+      attempts.push({ profile: profile.name, error: err.message });
     }
   }
 
   // Strategy 2: Direct backend-api fallback
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const apiRes = await fetch(`https://chatgpt.com/backend-api/share/${shareId}`, {
       signal: controller.signal,
       headers: {
@@ -194,9 +233,16 @@ async function handleNode(req, res) {
     return res.status(204).end();
   }
 
-  const query = req.query || {};
-  let shareParam = query.shareId || query.url;
-
+  let shareParam = null;
+  if (req.query) {
+    shareParam = req.query.shareId || req.query.url;
+  }
+  if (!shareParam && req.url) {
+    try {
+      const parsedUrl = new URL(req.url, 'http://localhost');
+      shareParam = parsedUrl.searchParams.get('shareId') || parsedUrl.searchParams.get('url');
+    } catch (_) {}
+  }
   if (!shareParam && req.body) {
     shareParam = req.body.shareId || req.body.url;
   }
